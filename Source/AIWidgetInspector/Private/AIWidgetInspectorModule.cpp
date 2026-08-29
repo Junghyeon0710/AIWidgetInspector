@@ -79,6 +79,7 @@ void FAIWidgetInspectorModule::StartupModule()
 		ClaudeConfig.DisplayName = LOCTEXT("ClaudeCli", "Claude Code");
 		ClaudeConfig.Description = LOCTEXT("ClaudeCliDesc", "claude CLI에 프롬프트를 넘기고 답을 받는다.");
 		ClaudeConfig.Executable = TEXT("claude");
+		ClaudeConfig.InstallCommand = TEXT("npm install -g @anthropic-ai/claude-code");
 		// -p 는 대화형 세션 대신 답만 찍고 끝내라는 뜻이다.
 		//
 		// 나머지 둘은 코딩 에이전트가 아니라 응답기로 쓰기 위한 것이다. 그냥 부르면
@@ -107,6 +108,7 @@ void FAIWidgetInspectorModule::StartupModule()
 		ClaudeMcpConfig.DisplayName = LOCTEXT("ClaudeCliMcp", "Claude Code (Unreal MCP)");
 		ClaudeMcpConfig.Description = LOCTEXT("ClaudeCliMcpDesc", "claude CLI가 에디터 MCP에 붙어 Widget을 직접 고친다.");
 		ClaudeMcpConfig.Executable = TEXT("claude");
+		ClaudeMcpConfig.InstallCommand = TEXT("npm install -g @anthropic-ai/claude-code");
 		ClaudeMcpConfig.Arguments = { TEXT("-p") };
 		ClaudeMcpConfig.bUseUnrealMcp = true;
 		Providers.Add(MakeShared<FAICliProvider>(MoveTemp(ClaudeMcpConfig)));
@@ -118,6 +120,7 @@ void FAIWidgetInspectorModule::StartupModule()
 		CodexConfig.DisplayName = LOCTEXT("CodexCli", "Codex");
 		CodexConfig.Description = LOCTEXT("CodexCliDesc", "codex CLI에 프롬프트를 넘기고 답을 받는다.");
 		CodexConfig.Executable = TEXT("codex");
+		CodexConfig.InstallCommand = TEXT("npm install -g @openai/codex");
 		// "-" 는 프롬프트를 stdin에서 읽으라는 뜻이다.
 		CodexConfig.Arguments = { TEXT("exec"), TEXT("-") };
 		Providers.Add(MakeShared<FAICliProvider>(MoveTemp(CodexConfig)));

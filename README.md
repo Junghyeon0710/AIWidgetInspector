@@ -264,6 +264,15 @@ undo is the whole story.
 | **Claude Code (Unreal MCP)** | Same CLI, connected to the editor — it calls the widget tools itself | `claude` on `PATH`, MCP server running |
 | **Codex** | Pipes the prompt to `codex exec -` and shows what comes back | `codex` on `PATH` |
 
+A provider that cannot run right now says so in the panel, above the question box, with the command
+that fixes it — `claude` missing names the npm install line; the MCP provider with the editor's
+server switched off names the setting and points at the non-MCP provider as a way to keep working
+meanwhile. A disabled button and a tooltip are not enough: nobody hovers a greyed control to find
+out why it is grey, and the plugin ends up looking broken rather than unconfigured.
+
+The MCP provider also reports itself unavailable when the server is off, rather than accepting the
+request and failing at the 180-second timeout.
+
 The CLI providers hold no credentials. The prompt goes to the tool's stdin, the answer comes back
 on stdout, and authentication is whatever that CLI already has — the plugin never stores an API key
 and never opens a socket itself. A CLI that is not installed stays in the list with the send button

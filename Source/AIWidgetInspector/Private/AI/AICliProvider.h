@@ -39,6 +39,9 @@ public:
 
 		/** MCP 설정에 적을 서버 이름. Tool 이름이 mcp__<이름>__* 형태가 된다. */
 		FString McpServerName = TEXT("unreal");
+
+		/** 없을 때 안내할 설치 명령. 패널에 그대로 보여 준다. */
+		FString InstallCommand;
 	};
 
 	explicit FAICliProvider(FConfig InConfig);
@@ -49,6 +52,7 @@ public:
 	virtual FText GetDisplayName() const override { return Config.DisplayName; }
 	virtual FText GetDescription() const override;
 	virtual bool IsAvailable() const override;
+	virtual FText GetUnavailableReason() const override;
 	virtual void SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetResponse InOnComplete) override;
 	//~ End IAIWidgetProvider
 

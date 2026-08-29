@@ -85,6 +85,14 @@ public:
 	virtual bool IsAvailable() const = 0;
 
 	/**
+	 * 못 쓰는 이유. 쓸 수 있으면 빈 FText.
+	 *
+	 * 패널에 그대로 나가므로 무엇이 없는지와 어떻게 채우는지가 같이 들어 있어야 한다.
+	 * 툴팁에만 두면 회색 버튼을 보고 이유를 찾으려 마우스를 올려 볼 사람이 드물다.
+	 */
+	virtual FText GetUnavailableReason() const { return FText::GetEmpty(); }
+
+	/**
 	 * 이 Provider가 에디터 Tool을 직접 부를 수 있는지.
 	 *
 	 * true면 변경 요청이 ToolChangeRequest로 나가고, 패널은 응답에서 JSON을 찾지 않는다.

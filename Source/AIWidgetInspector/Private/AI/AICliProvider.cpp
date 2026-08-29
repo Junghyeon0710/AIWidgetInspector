@@ -133,7 +133,48 @@ FString FAICliProvider::WriteMcpConfigFile(const FString& InServerName)
 bool FAICliProvider::IsAvailable() const
 {
 	FString FoundPath;
-	return FindExecutable(Config.Executable, FoundPath);
+	if (!FindExecutable(Config.Executable, FoundPath))
+	{
+		return false;
+	}
+
+	// MCP 모드는 에디터 서버가 떠 있어야 성립한다. 실행 파일만 보고 쓸 수 있다고 하면
+	// 사용자는 보낼 수 있는 줄 알고 눌렀다가 180초 타임아웃을 기다리게 된다.
+	if (Config.bUseUnrealMcp && !IsEditorMcpRunning())
+	{
+		return false;
+	}
+
+	return true;
+}
+
+FText FAICliProvider::GetUnavailableReason() const
+{
+	FString FoundPath;
+	if (!FindExecutable(Config.Executable, FoundPath))
+	{
+		if (!Config.InstallCommand.IsEmpty())
+		{
+			return FText::Format(
+				LOCTEXT("MissingCliWithHint", "{0} 이(가) 설치돼 있지 않습니다.  터미널에서  {1}  을(를) 실행한 뒤 에디터를 다시 시작하세요."),
+				FText::FromString(Config.Executable),
+				FText::FromString(Config.InstallCommand));
+		}
+
+		return FText::Format(
+			LOCTEXT("MissingCli", "{0} 을(를) PATH에서 찾지 못했습니다. 설치한 뒤 에디터를 다시 시작하세요."),
+			FText::FromString(Config.Executable));
+	}
+
+	if (Config.bUseUnrealMcp && !IsEditorMcpRunning())
+	{
+		return LOCTEXT("McpOff",
+			"에디터의 MCP 서버가 꺼져 있어 AI가 Widget을 직접 고칠 수 없습니다.  "
+			"Edit > Project Settings > Plugins > Model Context Protocol 에서 Auto Start Server를 켜고 에디터를 다시 시작하세요.  "
+			"그때까지는 'Claude Code' Provider로 바꾸면 응답 JSON을 받아 적용하는 방식으로 쓸 수 있습니다.");
+	}
+
+	return FText::GetEmpty();
 }
 
 bool FAICliProvider::RunProcess(

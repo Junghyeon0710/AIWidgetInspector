@@ -151,6 +151,10 @@ private:
 	FText GetActiveProviderText() const;
 	FText GetActiveProviderTooltip() const;
 
+	//~ Provider를 지금 쓸 수 없을 때 패널에 띄우는 안내.
+	FText GetProviderWarningText() const;
+	EVisibility GetProviderWarningVisibility() const;
+
 	FReply HandleCopyContextClicked();
 	FReply HandleAskAIClicked();
 	FReply HandleRequestChangeClicked();

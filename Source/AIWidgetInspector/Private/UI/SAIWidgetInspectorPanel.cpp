@@ -1362,6 +1362,24 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildAskAISection()
 				]
 			]
 
+			// 못 쓰는 Provider를 골랐을 때 이유를 여기 띄운다. 회색 버튼만 보고
+			// 툴팁을 찾아 마우스를 올려 볼 사람은 드물다.
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(0.0f, 2.0f, 0.0f, 4.0f)
+			[
+				SNew(SBorder)
+				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+				.Visibility(this, &SAIWidgetInspectorPanel::GetProviderWarningVisibility)
+				.Padding(6.0f, 4.0f)
+				[
+					SNew(STextBlock)
+					.Text(this, &SAIWidgetInspectorPanel::GetProviderWarningText)
+					.ColorAndOpacity(FLinearColor(1.0f, 0.72f, 0.35f))
+					.AutoWrapText(true)
+				]
+			]
+
 			+ SVerticalBox::Slot()
 			.AutoHeight()
 			.Padding(0.0f, 0.0f, 0.0f, 4.0f)
@@ -1469,6 +1487,17 @@ FText SAIWidgetInspectorPanel::GetActiveProviderText() const
 FText SAIWidgetInspectorPanel::GetActiveProviderTooltip() const
 {
 	return ActiveProvider.IsValid() ? ActiveProvider->GetDescription() : FText::GetEmpty();
+}
+
+FText SAIWidgetInspectorPanel::GetProviderWarningText() const
+{
+	return ActiveProvider.IsValid() ? ActiveProvider->GetUnavailableReason() : FText::GetEmpty();
+}
+
+EVisibility SAIWidgetInspectorPanel::GetProviderWarningVisibility() const
+{
+	// 이유가 없으면 줄 자체를 없앤다. 빈 칸이 남으면 뭔가 잘못된 것처럼 보인다.
+	return GetProviderWarningText().IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 FText SAIWidgetInspectorPanel::GetAskButtonText() const
