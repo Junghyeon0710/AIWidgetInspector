@@ -111,6 +111,29 @@ those paths onto your local engine directory before reading. When the remap fail
 `C++ Path` line at all, rather than a path that does not exist — a model handed a fake path will try
 to open it.
 
+## Letting the AI do it
+
+The plugin registers a toolset with Unreal's own **ModelContextProtocol** plugin, so any MCP client
+— `claude`, or an interactive session pointed at `http://127.0.0.1:8000/mcp` — can drive the editor
+directly:
+
+| Tool | Effect |
+|---|---|
+| `GetSelectedWidget` | The full context block for whatever is selected |
+| `ListWidgetTree` | Every widget name and class in the owning UserWidget |
+| `PreviewWidgetChange` | Applies to the live instance; the asset is untouched |
+| `ApplyWidgetChangeToAsset` | Writes into the Widget Blueprint; Ctrl+Z undoes it |
+| `RevertPreview` | Restores every previewed property to its original |
+
+This does not widen what the AI can do. The five tools are the whitelist, the arguments go through
+the same parser and validator as the JSON path, and preview and asset writes are separate tools
+rather than a flag — so the difference is visible in the tool name and in the log, not buried in a
+parameter. What changes is that the model sees each result and can correct itself, instead of
+emitting one JSON block and hoping.
+
+Preview and asset writes stay separate deliberately. A preview costs one call to undo; an asset
+write edits a file and recompiles a Blueprint.
+
 ## Requesting a change
 
 **Request Change** sends the same context as **Ask AI**, plus instructions telling the model to

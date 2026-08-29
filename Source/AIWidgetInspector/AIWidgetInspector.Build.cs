@@ -23,6 +23,7 @@ public class AIWidgetInspector : ModuleRules
 				"ApplicationCore",
 				"InputCore",
 				"Json",
+				"ToolsetRegistry",
 				"Projects",
 				"ToolMenus",
 				"WorkspaceMenuStructure",

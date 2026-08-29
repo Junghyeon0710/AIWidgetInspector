@@ -37,11 +37,20 @@ public:
 	 */
 	static bool ParseOperation(const FString& InOperationName, EAIWidgetOperation& OutOperation);
 
+	/**
+	 * { operation, target_widget, value } 오브젝트 하나를 명령으로 바꾼다.
+	 *
+	 * AI가 응답 본문으로 JSON을 돌려주든 MCP Tool 인자로 넘기든, 값이 거쳐야 할 검사는
+	 * 같아야 한다. 두 경로가 각자 파싱하기 시작하면 한쪽에만 구멍이 생긴다.
+	 *
+	 * @param InIndex  오류 메시지에 넣을 항목 번호. 단건이면 0.
+	 */
+	static bool ParseChange(const TSharedPtr<FJsonObject>& InChangeObject, int32 InIndex, FAIWidgetCommand& OutCommand, FText& OutError);
+
 private:
 	/** 설명이 섞인 응답에서 JSON 오브젝트 하나를 잘라낸다. 문자열 안의 중괄호는 세지 않는다. */
 	static bool ExtractJsonObject(const FString& InResponse, FString& OutJson);
 
 	/** Operation이 요구하는 JSON 타입인지. FJsonValue의 관대한 변환을 우회해 엄격하게 본다. */
 	static bool HasExpectedValueType(EAIWidgetOperation InOperation, EJson InValueType);
-	static bool ParseChange(const TSharedPtr<FJsonObject>& InChangeObject, int32 InIndex, FAIWidgetCommand& OutCommand, FText& OutError);
 };

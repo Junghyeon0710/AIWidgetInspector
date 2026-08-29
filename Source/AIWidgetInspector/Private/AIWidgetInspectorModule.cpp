@@ -3,6 +3,10 @@
 #include "AIWidgetInspectorModule.h"
 
 #include "AI/AICliProvider.h"
+#include "Mcp/AIWidgetInspectorToolset.h"
+
+#include "Misc/CoreDelegates.h"
+#include "ToolsetRegistry/UToolsetRegistry.h"
 #include "AI/AIClipboardProvider.h"
 #include "AIWidgetInspectorCommands.h"
 #include "AIWidgetInspectorLog.h"
@@ -63,6 +67,7 @@ void FAIWidgetInspectorModule::StartupModule()
 
 	RuntimePreview = MakeShared<FAIWidgetRuntimePreview>();
 
+
 	// Clipboard가 기본값이다. 아무것도 설치돼 있지 않아도 동작하기 때문이다.
 	Providers.Add(MakeShared<FAIClipboardProvider>());
 
@@ -113,6 +118,10 @@ void FAIWidgetInspectorModule::StartupModule()
 			*Provider->GetDescription().ToString());
 	}
 
+	// 엔진 MCP 서버에 Widget Tool을 실어 보낸다. AI CLI는 그 서버에 붙어 여기 함수를 부른다.
+	FCoreDelegates::OnAllModuleLoadingPhasesComplete.AddRaw(this, &FAIWidgetInspectorModule::HandleAllModuleLoadingPhasesComplete);
+	FCoreDelegates::OnPreExit.AddRaw(this, &FAIWidgetInspectorModule::HandlePreExit);
+
 	FAIWidgetInspectorCommands::Register();
 
 	PluginCommands = MakeShared<FUICommandList>();
@@ -135,8 +144,22 @@ void FAIWidgetInspectorModule::StartupModule()
 		FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FAIWidgetInspectorModule::RegisterMenus));
 }
 
+void FAIWidgetInspectorModule::HandleAllModuleLoadingPhasesComplete()
+{
+	UToolsetRegistry::RegisterToolsetClass(UAIWidgetInspectorToolset::StaticClass());
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("Widget Toolset을 MCP에 등록했습니다."));
+}
+
+void FAIWidgetInspectorModule::HandlePreExit()
+{
+	UToolsetRegistry::UnregisterToolsetClass(UAIWidgetInspectorToolset::StaticClass());
+}
+
 void FAIWidgetInspectorModule::ShutdownModule()
 {
+	FCoreDelegates::OnAllModuleLoadingPhasesComplete.RemoveAll(this);
+	FCoreDelegates::OnPreExit.RemoveAll(this);
+
 	if (FSlateApplication::IsInitialized())
 	{
 		FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(AIWidgetInspector::InspectorTabName);
@@ -148,6 +171,7 @@ void FAIWidgetInspectorModule::ShutdownModule()
 	FAIWidgetInspectorCommands::Unregister();
 	PluginCommands.Reset();
 	Providers.Reset();
+
 
 	// 임시 변경은 에셋에 남지 않으므로, 모듈이 내려갈 때 원래 값으로 되돌려 준다.
 	if (RuntimePreview.IsValid())

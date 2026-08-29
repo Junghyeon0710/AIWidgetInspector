@@ -21,6 +21,15 @@ public:
 	//~ IModuleInterface
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
+
+	/**
+	 * Toolset은 모든 모듈이 올라온 뒤에 등록한다.
+	 *
+	 * StartupModule 시점에는 ToolsetRegistry가 아직 준비되지 않았을 수 있다.
+	 * 엔진의 UMGToolSet도 같은 델리게이트를 쓴다.
+	 */
+	void HandleAllModuleLoadingPhasesComplete();
+	void HandlePreExit();
 	//~ End IModuleInterface
 
 	static FAIWidgetInspectorModule& Get();
