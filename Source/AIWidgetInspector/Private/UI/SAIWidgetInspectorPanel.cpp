@@ -1423,6 +1423,7 @@ void SAIWidgetInspectorPanel::SendRequest(EAIWidgetRequestKind InKind)
 	Request.UserMessage = QuestionTextBox->GetText().ToString();
 
 	bRequestInFlight = true;
+	PendingRequestKind = InKind;
 	ClearChangePlan();
 
 	ActiveProvider->SendRequest(Request, FOnAIWidgetResponse::CreateSP(this, &SAIWidgetInspectorPanel::HandleAIResponse));
@@ -1452,7 +1453,35 @@ void SAIWidgetInspectorPanel::HandleAIResponse(const FAIWidgetResponse& InRespon
 	if (!InResponse.bSuccess)
 	{
 		UE_LOG(LogAIWidgetInspector, Warning, TEXT("AI 요청 실패: %s"), *InResponse.Message.ToString());
+		return;
 	}
+
+	// 질문에 대한 답은 읽으라고 보여 줄 뿐이다. 여기서 뭔가 실행하면
+	// "물어봤을 뿐인데 화면이 바뀌는" 일이 생긴다.
+	if (PendingRequestKind != EAIWidgetRequestKind::ChangeRequest)
+	{
+		return;
+	}
+
+	// 변경 요청이었으면 여기까지 자동으로 온다. 응답을 읽어 계획을 만들고,
+	// 살아있는 인스턴스에 적용해 눈으로 볼 수 있게 한다.
+	//
+	// 에셋에는 쓰지 않는다. 미리보기는 Revert 한 번으로 되돌아가지만 에셋 변경은
+	// 파일을 건드리는 일이라, 사람이 계획을 보고 누르는 단계를 남겨 둔다.
+	if (BuildChangePlanFromResponse() <= 0)
+	{
+		return;
+	}
+
+	const int32 AppliedCount = ApplyChangePlanToPreview();
+
+	// 계획은 남겨 둔다. 방금 적용한 그 계획을 그대로 Apply to Asset으로 넘길 수 있어야 한다.
+	if (ChangePlanListView.IsValid())
+	{
+		ChangePlanListView->RequestListRefresh();
+	}
+
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("변경 요청 응답을 %d건 미리보기로 적용했습니다."), AppliedCount);
 }
 
 TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildChangePlanSection()
@@ -1589,11 +1618,17 @@ EVisibility SAIWidgetInspectorPanel::GetChangePlanVisibility() const
 
 FReply SAIWidgetInspectorPanel::HandleParseChangeClicked()
 {
+	BuildChangePlanFromResponse();
+	return FReply::Handled();
+}
+
+int32 SAIWidgetInspectorPanel::BuildChangePlanFromResponse()
+{
 	ClearChangePlan();
 
 	if (!ResponseTextBox.IsValid())
 	{
-		return FReply::Handled();
+		return 0;
 	}
 
 	TArray<FAIWidgetCommand> Commands;
@@ -1641,14 +1676,26 @@ FReply SAIWidgetInspectorPanel::HandleParseChangeClicked()
 	UE_LOG(LogAIWidgetInspector, Log, TEXT("변경 계획: %d건 파싱, %d건 적용 가능, %d건 형식 오류."),
 		ChangePlanEntries.Num(), ValidCount, ParseErrors.Num());
 
-	return FReply::Handled();
+	return ValidCount;
 }
 
 FReply SAIWidgetInspectorPanel::HandleApplyChangeClicked()
 {
+	ApplyChangePlanToPreview();
+
+	// 손으로 누른 경우에는 계획을 비운다. 같은 계획을 두 번 눌러 중복 적용되는 걸 막는다.
+	const FText StatusToKeep = ChangePlanStatusText;
+	ClearChangePlan();
+	ChangePlanStatusText = StatusToKeep;
+
+	return FReply::Handled();
+}
+
+int32 SAIWidgetInspectorPanel::ApplyChangePlanToPreview()
+{
 	if (!RuntimePreview.IsValid())
 	{
-		return FReply::Handled();
+		return 0;
 	}
 
 	int32 AppliedCount = 0;
@@ -1689,12 +1736,7 @@ FReply SAIWidgetInspectorPanel::HandleApplyChangeClicked()
 			LOCTEXT("Applied", "{0}건 적용했습니다. 에셋은 바뀌지 않았습니다. Revert Preview로 되돌릴 수 있습니다."),
 			FText::AsNumber(AppliedCount));
 
-	// 적용이 끝나면 계획은 비운다. 같은 계획을 두 번 눌러 중복 적용되는 걸 막는다.
-	const FText StatusToKeep = ChangePlanStatusText;
-	ClearChangePlan();
-	ChangePlanStatusText = StatusToKeep;
-
-	return FReply::Handled();
+	return AppliedCount;
 }
 
 FReply SAIWidgetInspectorPanel::HandleCancelChangeClicked()

@@ -126,9 +126,17 @@ answer with an executable JSON block rather than prose:
 }
 ```
 
-Paste the model's answer back into the response box and press **Parse Change**. Nothing runs yet —
-the plugin builds a plan and shows it, one line per change, with rejected entries marked and the
-reason given. **Apply Preview** then runs only the entries that passed; **Cancel** discards the plan.
+With a CLI provider the loop closes on its own: the answer arrives, the plugin builds a plan from
+it, and applies the entries that passed to the **live widget** so you can see the result. The asset
+on disk is untouched, and **Revert Preview** puts everything back. The plan stays on screen, so
+**Apply to Asset** is the next click when you like what you see.
+
+Nothing reaches the asset without that click. A preview costs one button to undo; an asset write
+edits a file and compiles a Blueprint, so a person decides it.
+
+With the **Clipboard** provider there is no answer to read, so the flow is manual: paste the model's
+reply into the response box and press **Parse Change**, then **Apply Preview**. **Cancel** discards
+the plan.
 
 Nothing the model writes is executed as code. Every change goes through three gates:
 
@@ -196,6 +204,12 @@ on stdout, and authentication is whatever that CLI already has — the plugin ne
 and never opens a socket itself. A CLI that is not installed stays in the list with the send button
 disabled and the reason in its tooltip, rather than vanishing.
 
+The CLI providers are run as responders, not as coding agents. Invoked plainly, `claude` would open
+an agentic session in the project directory and start reading and editing files — answering a
+request to recolour a label with instructions for doing it by hand rather than with the JSON the
+plugin is waiting for. The prompt already carries everything needed, so the file and command tools
+are switched off.
+
 The process runs on a thread pool with a 180-second cap, so a slow or hung CLI never freezes the
 editor; only the completion callback returns to the game thread. On Windows the launcher goes
 through `cmd.exe` when the tool resolves to a `.cmd` or `.bat`, which is how npm-installed CLIs land.
@@ -240,6 +254,12 @@ missing fields, and malformed JSON.
 template widget really changes, that operations the widget cannot take are rejected, and that a single
 undo restores every property the batch touched. That last one is worth a test: forget one `Modify()`
 and the value still changes, so nothing looks wrong until a user tries to undo.
+
+`AIWidgetInspector.Request` covers the prompt itself — that a change request carries the response
+schema, that a plain question does not, and that every whitelisted operation is both named in the
+schema and readable back by the parser. Those two lists drifting apart is invisible at runtime: the
+model is told an operation does not exist and politely says so, which reads as a refusal rather than
+a missing wire.
 
 `AIWidgetInspector.SourceResolver` covers path remapping and snippet extraction. This code fails
 quietly by design — a bad path just yields empty fields, and the model still answers, so a broken

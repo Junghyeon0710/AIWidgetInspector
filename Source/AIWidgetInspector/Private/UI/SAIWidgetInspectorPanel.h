@@ -151,6 +151,13 @@ private:
 	TSharedRef<ITableRow> HandleGenerateChangePlanRow(FChangePlanEntryPtr InEntry, const TSharedRef<STableViewBase>& InOwnerTable);
 
 	FReply HandleParseChangeClicked();
+
+	/** 응답 상자의 내용을 계획으로 만든다. 적용 가능한 건수를 돌려준다. */
+	int32 BuildChangePlanFromResponse();
+
+	/** 계획 중 통과한 것들을 살아있는 인스턴스에 적용한다. 에셋은 건드리지 않는다. */
+	int32 ApplyChangePlanToPreview();
+
 	FReply HandleApplyChangeClicked();
 	FReply HandleApplyToAssetClicked();
 	FReply HandleCancelChangeClicked();
@@ -227,6 +234,9 @@ private:
 
 	/** 응답을 기다리는 동안 중복 전송을 막는다. */
 	bool bRequestInFlight = false;
+
+	/** 지금 날아간 요청이 무엇이었는지. 응답이 오면 이걸 보고 계획으로 만들지 정한다. */
+	EAIWidgetRequestKind PendingRequestKind = EAIWidgetRequestKind::Question;
 
 	TArray<FChangePlanEntryPtr> ChangePlanEntries;
 	TSharedPtr<SListView<FChangePlanEntryPtr>> ChangePlanListView;

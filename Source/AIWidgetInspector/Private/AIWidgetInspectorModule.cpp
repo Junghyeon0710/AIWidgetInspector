@@ -74,7 +74,22 @@ void FAIWidgetInspectorModule::StartupModule()
 		ClaudeConfig.DisplayName = LOCTEXT("ClaudeCli", "Claude Code");
 		ClaudeConfig.Description = LOCTEXT("ClaudeCliDesc", "claude CLI에 프롬프트를 넘기고 답을 받는다.");
 		ClaudeConfig.Executable = TEXT("claude");
-		ClaudeConfig.Arguments = { TEXT("-p") };
+		// -p 는 대화형 세션 대신 답만 찍고 끝내라는 뜻이다.
+		//
+		// 나머지 둘은 코딩 에이전트가 아니라 응답기로 쓰기 위한 것이다. 그냥 부르면
+		// 프로젝트 디렉터리에서 파일을 뒤지며 스스로 고치려 들고, 정작 우리가 기다리는
+		// JSON 대신 "직접 이렇게 하세요" 같은 답을 돌려준다. 프롬프트에 필요한 정보는
+		// 이미 다 들어 있으므로 도구는 필요 없다.
+		//
+		// --bare 는 쓰지 않는다. OAuth와 키체인을 읽지 않고 ANTHROPIC_API_KEY만 보기
+		// 때문에, CLI로 로그인해 둔 사용자의 인증이 오히려 깨진다.
+		ClaudeConfig.Arguments =
+		{
+			TEXT("-p"),
+			TEXT("--restricted"),
+			TEXT("--disallowedTools"),
+			TEXT("Read,Edit,Write,Glob,Grep,Task,WebSearch,WebFetch,NotebookEdit"),
+		};
 		Providers.Add(MakeShared<FAICliProvider>(MoveTemp(ClaudeConfig)));
 	}
 

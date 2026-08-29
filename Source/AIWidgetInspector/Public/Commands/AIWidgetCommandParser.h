@@ -29,11 +29,17 @@ public:
 	/** AI에게 어떤 형식으로 답하라고 알려줄 지시문. 변경 요청 프롬프트 끝에 붙는다. */
 	static FString GetSchemaInstructions();
 
+	/**
+	 * Operation 이름을 화이트리스트에서 되짚는다. 여기 없는 이름은 거부된다.
+	 *
+	 * 공개해 둔 이유는 위 지시문과 이 목록이 갈라지는지 테스트에서 대조하기 위해서다.
+	 * 지시문에 적힌 이름을 파서가 못 읽으면, 모델은 시킨 대로 쓰고도 거부당한다.
+	 */
+	static bool ParseOperation(const FString& InOperationName, EAIWidgetOperation& OutOperation);
+
 private:
 	/** 설명이 섞인 응답에서 JSON 오브젝트 하나를 잘라낸다. 문자열 안의 중괄호는 세지 않는다. */
 	static bool ExtractJsonObject(const FString& InResponse, FString& OutJson);
-
-	static bool ParseOperation(const FString& InOperationName, EAIWidgetOperation& OutOperation);
 
 	/** Operation이 요구하는 JSON 타입인지. FJsonValue의 관대한 변환을 우회해 엄격하게 본다. */
 	static bool HasExpectedValueType(EAIWidgetOperation InOperation, EJson InValueType);
