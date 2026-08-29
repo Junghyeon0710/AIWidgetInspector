@@ -9,6 +9,8 @@
 #include "Commands/AIWidgetCommand.h"
 #include "Commands/AIWidgetCommandParser.h"
 #include "Commands/AIWidgetPersistentApplier.h"
+
+#include "BaseWidgetBlueprint.h"
 #include "Commands/AIWidgetRuntimePreview.h"
 #include "Inspection/AIWidgetInspector.h"
 #include "Inspection/AIWidgetSelection.h"
@@ -1786,6 +1788,12 @@ FReply SAIWidgetInspectorPanel::HandleApplyToAssetClicked()
 
 	const FAIWidgetPersistentResult Result = FAIWidgetPersistentApplier::Apply(CommandsToApply, CachedInspection);
 
+	// 컴파일이 선택을 죽이기 전에 저장할 손잡이를 남긴다.
+	if (Result.Blueprint.IsValid())
+	{
+		FAIWidgetInspectorModule::Get().SetLastAppliedBlueprint(Result.Blueprint.Get());
+	}
+
 	FText Status;
 	if (Result.AppliedCount == 0)
 	{
@@ -1820,7 +1828,14 @@ FReply SAIWidgetInspectorPanel::HandleApplyToAssetClicked()
 
 bool SAIWidgetInspectorPanel::CanSaveAsset() const
 {
-	return FAIWidgetPersistentApplier::IsAssetDirty(CachedInspection);
+	if (FAIWidgetPersistentApplier::IsAssetDirty(CachedInspection))
+	{
+		return true;
+	}
+
+	// 에셋에 적용하면 Blueprint가 재컴파일되고 화면의 Widget이 파괴된다. 그러면 선택이
+	// 죽어 CachedInspection으로는 에셋을 못 찾고, 방금 바꿔 놓고도 버튼이 회색이 된다.
+	return FAIWidgetPersistentApplier::IsAssetDirty(FAIWidgetInspectorModule::Get().GetLastAppliedBlueprint());
 }
 
 void SAIWidgetInspectorPanel::ExecuteSaveAsset()
@@ -1840,8 +1855,15 @@ FReply SAIWidgetInspectorPanel::OnKeyDown(const FGeometry& InGeometry, const FKe
 
 FReply SAIWidgetInspectorPanel::HandleSaveAssetClicked()
 {
+	// CanSaveAsset과 같은 순서로 찾는다. 선택이 살아 있으면 그쪽, 죽었으면 마지막에 건드린 것.
+	UBaseWidgetBlueprint* Blueprint = FAIWidgetPersistentApplier::GetWidgetBlueprint(CachedInspection);
+	if (!Blueprint)
+	{
+		Blueprint = FAIWidgetInspectorModule::Get().GetLastAppliedBlueprint();
+	}
+
 	FText Error;
-	if (FAIWidgetPersistentApplier::SaveAsset(CachedInspection, Error))
+	if (FAIWidgetPersistentApplier::SaveAsset(Blueprint, Error))
 	{
 		ChangePlanStatusText = LOCTEXT("AssetSaved", "에셋을 저장했습니다.");
 	}

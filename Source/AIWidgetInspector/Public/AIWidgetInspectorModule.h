@@ -8,6 +8,7 @@
 class FAIWidgetHighlighter;
 class FAIWidgetPicker;
 class FAIWidgetRuntimePreview;
+class UBaseWidgetBlueprint;
 class FAIWidgetSelection;
 class FSpawnTabArgs;
 class FUICommandList;
@@ -50,6 +51,16 @@ public:
 	/** 살아있는 인스턴스에만 적용되는 임시 변경. 에셋은 건드리지 않는다. */
 	TSharedPtr<FAIWidgetRuntimePreview> GetRuntimePreview() const { return RuntimePreview; }
 
+	/**
+	 * 마지막으로 에셋 변경이 적용된 Widget Blueprint.
+	 *
+	 * 에셋 변경은 Blueprint를 재컴파일하고, 그러면 화면의 Widget 인스턴스가 파괴되면서
+	 * 선택이 죽는다. 선택을 거쳐 에셋을 다시 찾는 길이 그 순간 끊기므로, 저장할 때 쓸
+	 * 손잡이를 여기 남겨 둔다.
+	 */
+	void SetLastAppliedBlueprint(UBaseWidgetBlueprint* InBlueprint) { LastAppliedBlueprint = InBlueprint; }
+	UBaseWidgetBlueprint* GetLastAppliedBlueprint() const { return LastAppliedBlueprint.Get(); }
+
 private:
 	void RegisterMenus();
 
@@ -65,6 +76,7 @@ private:
 	TSharedPtr<FAIWidgetSelection> WidgetSelection;
 	TSharedPtr<FAIWidgetHighlighter> WidgetHighlighter;
 	TSharedPtr<FAIWidgetRuntimePreview> RuntimePreview;
+	TWeakObjectPtr<UBaseWidgetBlueprint> LastAppliedBlueprint;
 
 	TArray<TSharedPtr<IAIWidgetProvider>> Providers;
 	TSharedPtr<FUICommandList> PluginCommands;

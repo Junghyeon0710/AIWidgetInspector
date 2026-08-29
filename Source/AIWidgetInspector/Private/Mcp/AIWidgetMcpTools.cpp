@@ -3,6 +3,7 @@
 #include "Mcp/AIWidgetMcpTools.h"
 
 #include "AIWidgetInspectorLog.h"
+#include "AIWidgetInspectorModule.h"
 #include "Commands/AIWidgetCommand.h"
 #include "Commands/AIWidgetCommandParser.h"
 #include "Commands/AIWidgetCommandValidator.h"
@@ -17,6 +18,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Widget.h"
+#include "BaseWidgetBlueprint.h"
 #include "Dom/JsonObject.h"
 #include "Misc/StringBuilder.h"
 
@@ -352,6 +354,13 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::ApplyChange(const TSharedPtr<FJsonObje
 		}
 
 		const FAIWidgetPersistentResult Result = FAIWidgetPersistentApplier::Apply({ Command }, Inspection);
+
+		// 컴파일이 곧 선택을 죽인다. 저장할 때 쓸 손잡이를 지금 남겨 둔다.
+		if (Result.Blueprint.IsValid())
+		{
+			FAIWidgetInspectorModule::Get().SetLastAppliedBlueprint(Result.Blueprint.Get());
+		}
+
 		if (Result.AppliedCount == 0)
 		{
 			return FAIWidgetMcpToolResult::Error(FString::Printf(
@@ -383,14 +392,25 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::SaveAsset()
 		return FAIWidgetMcpToolResult::Error(TEXT("선택된 Widget이 없습니다."));
 	}
 
+	// 선택을 먼저 본다. 하지만 방금 에셋에 적용했다면 그 컴파일이 선택을 죽였을 수 있으므로,
+	// 죽었으면 마지막으로 건드린 Blueprint로 넘어간다. 여기서 포기하면 "적용은 됐는데
+	// 저장은 안 되는" 상태가 되어, 사용자가 보기엔 도구가 자기가 한 일을 잃어버린 것처럼 보인다.
 	const FAIWidgetInspectionResult Inspection = InspectSelection();
-	if (!FAIWidgetPersistentApplier::CanApply(Inspection))
+	UBaseWidgetBlueprint* Blueprint = FAIWidgetPersistentApplier::GetWidgetBlueprint(Inspection);
+	if (!Blueprint)
 	{
-		return FAIWidgetMcpToolResult::Error(TEXT("이 Widget은 Widget Blueprint에서 온 것이 아니라 저장할 에셋이 없습니다."));
+		Blueprint = FAIWidgetInspectorModule::Get().GetLastAppliedBlueprint();
+	}
+
+	if (!Blueprint)
+	{
+		return FAIWidgetMcpToolResult::Error(TEXT(
+			"저장할 Widget Blueprint를 찾지 못했습니다. 이 세션에서 에셋에 적용한 적이 없고, "
+			"지금 선택된 것도 Widget Blueprint에서 온 Widget이 아닙니다."));
 	}
 
 	// 저장할 게 없는데 저장했다고 답하면, 미리보기만 해 놓고 끝난 걸 사용자가 눈치채지 못한다.
-	if (!FAIWidgetPersistentApplier::IsAssetDirty(Inspection))
+	if (!FAIWidgetPersistentApplier::IsAssetDirty(Blueprint))
 	{
 		return FAIWidgetMcpToolResult::Error(TEXT(
 			"바뀐 내용이 없어 저장하지 않았습니다. 미리보기만 했다면 에셋에는 아직 아무것도 쓰이지 않은 상태입니다. "
@@ -398,13 +418,13 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::SaveAsset()
 	}
 
 	FText SaveError;
-	if (!FAIWidgetPersistentApplier::SaveAsset(Inspection, SaveError))
+	if (!FAIWidgetPersistentApplier::SaveAsset(Blueprint, SaveError))
 	{
 		return FAIWidgetMcpToolResult::Error(FString::Printf(TEXT("저장하지 못했습니다: %s"), *SaveError.ToString()));
 	}
 
 	return FAIWidgetMcpToolResult::Ok(FString::Printf(
-		TEXT("%s 를 저장했습니다. 이제 에디터를 닫아도 남습니다."), *Inspection.SourceAssetPath));
+		TEXT("%s 를 저장했습니다. 이제 에디터를 닫아도 남습니다."), *Blueprint->GetName()));
 }
 
 FAIWidgetMcpToolResult FAIWidgetMcpTools::RevertPreview()

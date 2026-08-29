@@ -73,6 +73,33 @@ bool FAIWidgetPersistentApplierTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("적용 2건"), Result.AppliedCount, 2);
 	TestEqual(TEXT("거부 2건"), Result.FailedCount, 2);
 	TestTrue(TEXT("적용됐으면 컴파일해야 한다"), Result.bCompiled);
+
+	// --- 적용 결과가 Blueprint를 들고 나온다 ---
+	//
+	// 이게 없으면 저장 경로가 끊긴다. Apply는 Blueprint를 재컴파일하고, 그 컴파일이
+	// 화면에 떠 있던 Widget 인스턴스를 파괴한다. 그 순간 선택이 죽어서, 선택을 거쳐
+	// 에셋을 찾던 코드가 "이 Widget은 Blueprint에서 온 게 아니다"라고 답하게 된다.
+	//
+	// 실제로 그렇게 깨졌었다. 적용은 성공했는데 3초 뒤 저장이 대상을 못 찾았다.
+	// 적용까지는 멀쩡히 되기 때문에 눈으로는 안 잡히고, 사용자가 저장을 누를 때가
+	// 되어서야 엉뚱한 원인을 가리키는 오류가 나온다.
+	TestTrue(TEXT("건드린 Blueprint를 돌려준다"), Result.Blueprint.IsValid());
+	TestEqual(TEXT("돌려준 것이 그 Blueprint다"), Result.Blueprint.Get(), Blueprint);
+
+	// 선택이 죽은 상황. 검사 결과가 비어 있으면 에셋을 못 찾는 게 맞다.
+	const FAIWidgetInspectionResult DeadSelection;
+	TestNull(
+		TEXT("죽은 선택으로는 Blueprint를 못 찾는다"),
+		FAIWidgetPersistentApplier::GetWidgetBlueprint(DeadSelection));
+	TestFalse(
+		TEXT("죽은 선택으로는 dirty도 못 본다"),
+		FAIWidgetPersistentApplier::IsAssetDirty(DeadSelection));
+
+	// 버그의 전부가 이 두 줄이 갈리는 데 있었다. 위는 없다고 하고 아래는 있다고 한다.
+	// 저장은 아래를 봐야 한다.
+	TestTrue(
+		TEXT("Blueprint 손잡이로는 여전히 저장 대상이 보인다"),
+		FAIWidgetPersistentApplier::IsAssetDirty(Result.Blueprint.Get()));
 	TestTrue(TEXT("에셋이 dirty여야 한다"), FAIWidgetPersistentApplier::IsAssetDirty(Inspection));
 
 	// 컴파일이 클래스를 다시 만들므로 템플릿을 다시 찾는다.

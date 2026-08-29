@@ -55,6 +55,8 @@ FAIWidgetPersistentResult FAIWidgetPersistentApplier::Apply(const TArray<FAIWidg
 		return Result;
 	}
 
+	Result.Blueprint = Blueprint;
+
 	{
 		// 전부 한 트랜잭션에 넣는다. Ctrl+Z 한 번에 이번 Apply 전체가 되돌아가야 한다.
 		FScopedTransaction Transaction(LOCTEXT("ApplyToAssetTransaction", "AI Widget Inspector: 에셋에 변경 적용"));
@@ -124,14 +126,23 @@ FAIWidgetPersistentResult FAIWidgetPersistentApplier::Apply(const TArray<FAIWidg
 
 bool FAIWidgetPersistentApplier::IsAssetDirty(const FAIWidgetInspectionResult& InInspection)
 {
-	const UBaseWidgetBlueprint* Blueprint = GetWidgetBlueprint(InInspection);
-	const UPackage* Package = Blueprint ? Blueprint->GetPackage() : nullptr;
+	return IsAssetDirty(GetWidgetBlueprint(InInspection));
+}
+
+bool FAIWidgetPersistentApplier::IsAssetDirty(const UBaseWidgetBlueprint* InBlueprint)
+{
+	const UPackage* Package = InBlueprint ? InBlueprint->GetPackage() : nullptr;
 	return Package != nullptr && Package->IsDirty();
 }
 
 bool FAIWidgetPersistentApplier::SaveAsset(const FAIWidgetInspectionResult& InInspection, FText& OutError)
 {
-	UBaseWidgetBlueprint* Blueprint = GetWidgetBlueprint(InInspection);
+	return SaveAsset(GetWidgetBlueprint(InInspection), OutError);
+}
+
+bool FAIWidgetPersistentApplier::SaveAsset(UBaseWidgetBlueprint* InBlueprint, FText& OutError)
+{
+	UBaseWidgetBlueprint* Blueprint = InBlueprint;
 	UPackage* Package = Blueprint ? Blueprint->GetPackage() : nullptr;
 	if (!Package)
 	{

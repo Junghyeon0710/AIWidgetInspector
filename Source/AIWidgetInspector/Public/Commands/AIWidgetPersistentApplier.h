@@ -20,6 +20,15 @@ struct FAIWidgetPersistentResult
 
 	/** 마지막 실패 이유. 아무것도 적용하지 못했으면 여기에만 내용이 있다. */
 	FText Error;
+
+	/**
+	 * 실제로 건드린 Blueprint.
+	 *
+	 * 이걸 돌려주는 이유는 Apply가 Blueprint를 재컴파일하면서 화면에 떠 있던 Widget
+	 * 인스턴스를 파괴하기 때문이다. 그 순간 선택은 죽고, 선택을 거쳐 에셋을 다시 찾는
+	 * 경로는 전부 끊긴다. 저장하려면 여기서 받아 둔 것을 써야 한다.
+	 */
+	TWeakObjectPtr<UBaseWidgetBlueprint> Blueprint;
 };
 
 /**
@@ -54,4 +63,8 @@ public:
 
 	static bool IsAssetDirty(const FAIWidgetInspectionResult& InInspection);
 	static bool SaveAsset(const FAIWidgetInspectionResult& InInspection, FText& OutError);
+
+	//~ Blueprint를 직접 아는 경우. 선택이 죽은 뒤에도 저장할 수 있다.
+	static bool IsAssetDirty(const UBaseWidgetBlueprint* InBlueprint);
+	static bool SaveAsset(UBaseWidgetBlueprint* InBlueprint, FText& OutError);
 };
