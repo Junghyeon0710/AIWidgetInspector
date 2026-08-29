@@ -1,0 +1,22 @@
+# Unreal build output. Regenerated from source on every build.
+Binaries/
+Intermediate/
+DerivedDataCache/
+Saved/
+
+# Generated project files
+*.sln
+*.suo
+*.xcodeproj
+*.xcworkspace
+.vs/
+.idea/
+.vscode/
+
+# Unreal asset lock files
+*.uasset.lock
+*.umap.lock
+
+# OS files
+.DS_Store
+Thumbs.db

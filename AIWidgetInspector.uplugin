@@ -1,0 +1,30 @@
+{
+	"FileVersion": 3,
+	"Version": 4,
+	"VersionName": "0.4.0",
+	"FriendlyName": "AI Widget Inspector",
+	"Description": "Click any Slate or UMG widget in the Unreal Editor to select it, trace it back to the UWidget, UserWidget, Widget Blueprint or C++ source that created it, and hand that context to an AI assistant.",
+	"Category": "Editor Tools",
+	"CreatedBy": "",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EngineVersion": "5.8.0",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "AIWidgetInspector",
+			"Type": "Editor",
+			"LoadingPhase": "PostEngineInit",
+			"PlatformAllowList": [
+				"Win64",
+				"Mac",
+				"Linux"
+			]
+		}
+	]
+}

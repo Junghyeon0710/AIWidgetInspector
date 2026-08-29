@@ -1,0 +1,13 @@
+# Normalize line endings in the repo; check out native on each platform.
+* text=auto
+
+# Unreal binary assets. Never diff or merge these.
+*.uasset binary
+*.umap binary
+*.upk binary
+*.udk binary
+
+# Images
+*.png binary
+*.jpg binary
+*.tga binary

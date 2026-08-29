@@ -1,0 +1,226 @@
+// AI Widget Inspector
+
+#include "AIWidgetInspectorModule.h"
+
+#include "AI/AICliProvider.h"
+#include "AI/AIClipboardProvider.h"
+#include "AIWidgetInspectorCommands.h"
+#include "AIWidgetInspectorLog.h"
+#include "Commands/AIWidgetRuntimePreview.h"
+#include "Inspection/AIWidgetSelection.h"
+#include "UI/SAIWidgetInspectorPanel.h"
+#include "WidgetPicking/AIWidgetHighlighter.h"
+#include "WidgetPicking/AIWidgetPicker.h"
+
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/Docking/TabManager.h"
+#include "Modules/ModuleManager.h"
+#include "Styling/AppStyle.h"
+#include "Textures/SlateIcon.h"
+#include "ToolMenu.h"
+#include "ToolMenuEntry.h"
+#include "ToolMenuSection.h"
+#include "ToolMenus.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "WorkspaceMenuStructure.h"
+#include "WorkspaceMenuStructureModule.h"
+
+DEFINE_LOG_CATEGORY(LogAIWidgetInspector);
+
+#define LOCTEXT_NAMESPACE "FAIWidgetInspectorModule"
+
+namespace AIWidgetInspector
+{
+	static const FName ModuleName(TEXT("AIWidgetInspector"));
+	static const FName InspectorTabName(TEXT("AIWidgetInspector"));
+
+	/** 플러그인 버튼이 붙는 레벨 에디터 우측 툴바. */
+	static const FName LevelEditorUserToolBarName(TEXT("LevelEditor.LevelEditorToolBar.User"));
+}
+
+FAIWidgetInspectorModule& FAIWidgetInspectorModule::Get()
+{
+	return FModuleManager::LoadModuleChecked<FAIWidgetInspectorModule>(AIWidgetInspector::ModuleName);
+}
+
+bool FAIWidgetInspectorModule::IsAvailable()
+{
+	return FModuleManager::Get().IsModuleLoaded(AIWidgetInspector::ModuleName);
+}
+
+void FAIWidgetInspectorModule::StartupModule()
+{
+	WidgetPicker = MakeShared<FAIWidgetPicker>();
+	WidgetPicker->Initialize();
+	WidgetPicker->OnWidgetPicked().AddRaw(this, &FAIWidgetInspectorModule::HandleWidgetPicked);
+	WidgetPicker->OnInspectModeChanged().AddRaw(this, &FAIWidgetInspectorModule::HandleInspectModeChanged);
+
+	WidgetSelection = MakeShared<FAIWidgetSelection>();
+
+	WidgetHighlighter = MakeShared<FAIWidgetHighlighter>(WidgetPicker.ToSharedRef(), WidgetSelection.ToSharedRef());
+	WidgetHighlighter->Register();
+
+	RuntimePreview = MakeShared<FAIWidgetRuntimePreview>();
+
+	// Clipboard가 기본값이다. 아무것도 설치돼 있지 않아도 동작하기 때문이다.
+	Providers.Add(MakeShared<FAIClipboardProvider>());
+
+	// CLI Provider는 설치돼 있지 않으면 목록에는 남지만 전송 버튼이 꺼진다.
+	// 없는 걸 감추는 것보다, 왜 못 쓰는지 툴팁으로 보여주는 편이 낫다.
+	{
+		FAICliProvider::FConfig ClaudeConfig;
+		ClaudeConfig.Name = TEXT("ClaudeCli");
+		ClaudeConfig.DisplayName = LOCTEXT("ClaudeCli", "Claude Code");
+		ClaudeConfig.Description = LOCTEXT("ClaudeCliDesc", "claude CLI에 프롬프트를 넘기고 답을 받는다.");
+		ClaudeConfig.Executable = TEXT("claude");
+		ClaudeConfig.Arguments = { TEXT("-p") };
+		Providers.Add(MakeShared<FAICliProvider>(MoveTemp(ClaudeConfig)));
+	}
+
+	{
+		FAICliProvider::FConfig CodexConfig;
+		CodexConfig.Name = TEXT("CodexCli");
+		CodexConfig.DisplayName = LOCTEXT("CodexCli", "Codex");
+		CodexConfig.Description = LOCTEXT("CodexCliDesc", "codex CLI에 프롬프트를 넘기고 답을 받는다.");
+		CodexConfig.Executable = TEXT("codex");
+		// "-" 는 프롬프트를 stdin에서 읽으라는 뜻이다.
+		CodexConfig.Arguments = { TEXT("exec"), TEXT("-") };
+		Providers.Add(MakeShared<FAICliProvider>(MoveTemp(CodexConfig)));
+	}
+
+	// 어떤 Provider가 왜 못 쓰이는지는 로그에 남겨 둔다.
+	// 회색으로 비활성화된 버튼만 보고 원인을 짚기는 어렵기 때문이다.
+	for (const TSharedPtr<IAIWidgetProvider>& Provider : Providers)
+	{
+		UE_LOG(LogAIWidgetInspector, Log, TEXT("Provider '%s': %s"),
+			*Provider->GetDisplayName().ToString(),
+			*Provider->GetDescription().ToString());
+	}
+
+	FAIWidgetInspectorCommands::Register();
+
+	PluginCommands = MakeShared<FUICommandList>();
+	PluginCommands->MapAction(
+		FAIWidgetInspectorCommands::Get().ToggleInspectMode,
+		FExecuteAction::CreateRaw(this, &FAIWidgetInspectorModule::ToggleInspectMode),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateRaw(this, &FAIWidgetInspectorModule::IsInspectModeActive));
+
+	FGlobalTabmanager::Get()
+		->RegisterNomadTabSpawner(
+			AIWidgetInspector::InspectorTabName,
+			FOnSpawnTab::CreateRaw(this, &FAIWidgetInspectorModule::HandleSpawnInspectorTab))
+		.SetDisplayName(LOCTEXT("InspectorTabTitle", "AI Widget Inspector"))
+		.SetTooltipText(LOCTEXT("InspectorTabTooltip", "선택된 Slate/UMG Widget의 정보와 경로를 본다."))
+		.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), TEXT("Icons.Visibility")))
+		.SetGroup(WorkspaceMenu::GetMenuStructure().GetToolsCategory());
+
+	UToolMenus::RegisterStartupCallback(
+		FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FAIWidgetInspectorModule::RegisterMenus));
+}
+
+void FAIWidgetInspectorModule::ShutdownModule()
+{
+	if (FSlateApplication::IsInitialized())
+	{
+		FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(AIWidgetInspector::InspectorTabName);
+	}
+
+	UToolMenus::UnRegisterStartupCallback(this);
+	UToolMenus::UnregisterOwner(this);
+
+	FAIWidgetInspectorCommands::Unregister();
+	PluginCommands.Reset();
+	Providers.Reset();
+
+	// 임시 변경은 에셋에 남지 않으므로, 모듈이 내려갈 때 원래 값으로 되돌려 준다.
+	if (RuntimePreview.IsValid())
+	{
+		RuntimePreview->RevertAll();
+		RuntimePreview.Reset();
+	}
+
+	// Highlighter는 FSlateApplication이 TWeakPtr로만 잡고 있으므로 여기서 놓으면 등록이 자연히 풀린다.
+	WidgetHighlighter.Reset();
+	WidgetSelection.Reset();
+
+	if (WidgetPicker.IsValid())
+	{
+		WidgetPicker->OnWidgetPicked().RemoveAll(this);
+		WidgetPicker->OnInspectModeChanged().RemoveAll(this);
+		WidgetPicker->Shutdown();
+		WidgetPicker.Reset();
+	}
+}
+
+void FAIWidgetInspectorModule::RegisterMenus()
+{
+	FToolMenuOwnerScoped OwnerScoped(this);
+
+	if (UToolMenu* ToolBar = UToolMenus::Get()->ExtendMenu(AIWidgetInspector::LevelEditorUserToolBarName))
+	{
+		FToolMenuSection& Section = ToolBar->FindOrAddSection(TEXT("AIWidgetInspector"));
+
+		FToolMenuEntry& Entry = Section.AddEntry(FToolMenuEntry::InitToolBarButton(
+			FAIWidgetInspectorCommands::Get().ToggleInspectMode,
+			LOCTEXT("ToolbarLabel", "AI Widget"),
+			TAttribute<FText>(),
+			FSlateIcon(FAppStyle::GetAppStyleSetName(), TEXT("Icons.Visibility"))));
+
+		Entry.SetCommandList(PluginCommands);
+	}
+}
+
+TSharedRef<SDockTab> FAIWidgetInspectorModule::HandleSpawnInspectorTab(const FSpawnTabArgs& InSpawnTabArgs)
+{
+	return SNew(SDockTab)
+		.TabRole(ETabRole::NomadTab)
+		[
+			SNew(SAIWidgetInspectorPanel, WidgetPicker.ToSharedRef(), WidgetSelection.ToSharedRef(), WidgetHighlighter.ToSharedRef())
+		];
+}
+
+void FAIWidgetInspectorModule::ToggleInspectMode()
+{
+	if (WidgetPicker.IsValid())
+	{
+		WidgetPicker->ToggleInspectMode();
+	}
+}
+
+bool FAIWidgetInspectorModule::IsInspectModeActive() const
+{
+	return WidgetPicker.IsValid() && WidgetPicker->IsInspecting();
+}
+
+void FAIWidgetInspectorModule::HandleInspectModeChanged(bool bInIsInspecting)
+{
+	if (!bInIsInspecting || !WidgetHighlighter.IsValid())
+	{
+		return;
+	}
+
+	// 엔진 Widget Reflector를 열었다 닫으면 리플렉터 슬롯을 그쪽이 가져간 상태다.
+	// 슬롯은 하나뿐이라 Inspect Mode에 들어갈 때마다 되찾아 온다.
+	WidgetHighlighter->Register();
+}
+
+void FAIWidgetInspectorModule::HandleWidgetPicked(const FWidgetPath& InPickedPath)
+{
+	if (!InPickedPath.IsValid() || !WidgetSelection.IsValid())
+	{
+		return;
+	}
+
+	WidgetSelection->SetFromPath(InPickedPath);
+
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("선택된 leaf Widget: %s"),
+		*FAIWidgetPicker::DescribeWidget(InPickedPath.GetLastWidget()));
+
+	FGlobalTabmanager::Get()->TryInvokeTab(AIWidgetInspector::InspectorTabName);
+}
+
+#undef LOCTEXT_NAMESPACE
+
+IMPLEMENT_MODULE(FAIWidgetInspectorModule, AIWidgetInspector)
