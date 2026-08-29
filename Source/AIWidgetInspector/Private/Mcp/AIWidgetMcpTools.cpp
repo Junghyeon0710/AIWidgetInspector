@@ -29,6 +29,7 @@ namespace AIWidgetMcpToolsPrivate
 	static const TCHAR* ToolPreviewChange     = TEXT("preview_widget_change");
 	static const TCHAR* ToolApplyToAsset      = TEXT("apply_widget_change_to_asset");
 	static const TCHAR* ToolRevertPreview     = TEXT("revert_preview");
+	static const TCHAR* ToolSaveAsset         = TEXT("save_widget_asset");
 
 	/** 문자열 배열을 JSON 스키마의 enum 값으로. */
 	static TArray<TSharedPtr<FJsonValue>> MakeStringEnum(std::initializer_list<const TCHAR*> InValues)
@@ -161,6 +162,12 @@ TArray<TSharedPtr<FJsonObject>> FAIWidgetMcpTools::BuildToolDefinitions() const
 		{ TEXT("operation"), TEXT("target_widget"), TEXT("value") }));
 
 	Tools.Add(MakeTool(
+		ToolSaveAsset,
+		TEXT("apply_widget_change_to_asset로 바꾼 Widget Blueprint를 디스크에 저장한다. 저장하고 나면 에디터를 닫아도 남는다. 사용자가 저장해 달라고 말했을 때만 부른다."),
+		MakeShared<FJsonObject>(),
+		{}));
+
+	Tools.Add(MakeTool(
 		ToolRevertPreview,
 		TEXT("preview_widget_change로 적용한 모든 변경을 처음 값으로 되돌린다."),
 		MakeShared<FJsonObject>(),
@@ -180,7 +187,26 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::Call(const FString& InToolName, const 
 		return FAIWidgetMcpToolResult::Error(TEXT("Tool을 게임 스레드 밖에서 실행할 수 없습니다."));
 	}
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("MCP Tool 호출: %s"), *InToolName);
+	const FAIWidgetMcpToolResult Result = Dispatch(InToolName, InArguments);
+
+	// 호출 사실만 남기면, 거부된 호출이 로그에서 성공한 것과 똑같아 보인다.
+	// AI가 실패를 읽고 다시 시도하는 구조라 거부는 정상 동작인데, 그렇다고
+	// 이유를 안 남기면 나중에 왜 두 번 불렸는지 아무도 설명할 수 없다.
+	if (Result.bIsError)
+	{
+		UE_LOG(LogAIWidgetInspector, Log, TEXT("MCP Tool 거부: %s — %s"), *InToolName, *Result.Text);
+	}
+	else
+	{
+		UE_LOG(LogAIWidgetInspector, Log, TEXT("MCP Tool 완료: %s"), *InToolName);
+	}
+
+	return Result;
+}
+
+FAIWidgetMcpToolResult FAIWidgetMcpTools::Dispatch(const FString& InToolName, const TSharedPtr<FJsonObject>& InArguments)
+{
+	using namespace AIWidgetMcpToolsPrivate;
 
 	if (InToolName == ToolGetSelectedWidget)
 	{
@@ -205,6 +231,11 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::Call(const FString& InToolName, const 
 	if (InToolName == ToolRevertPreview)
 	{
 		return RevertPreview();
+	}
+
+	if (InToolName == ToolSaveAsset)
+	{
+		return SaveAsset();
 	}
 
 	return FAIWidgetMcpToolResult::Error(FString::Printf(TEXT("알 수 없는 Tool입니다: %s"), *InToolName));
@@ -343,6 +374,37 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::ApplyChange(const TSharedPtr<FJsonObje
 	return FAIWidgetMcpToolResult::Ok(FString::Printf(
 		TEXT("미리보기로 적용했습니다: %s\n\n에셋은 바뀌지 않았습니다. revert_preview로 되돌릴 수 있습니다."),
 		*Validation.PlanLine));
+}
+
+FAIWidgetMcpToolResult FAIWidgetMcpTools::SaveAsset()
+{
+	if (!HasSelection())
+	{
+		return FAIWidgetMcpToolResult::Error(TEXT("선택된 Widget이 없습니다."));
+	}
+
+	const FAIWidgetInspectionResult Inspection = InspectSelection();
+	if (!FAIWidgetPersistentApplier::CanApply(Inspection))
+	{
+		return FAIWidgetMcpToolResult::Error(TEXT("이 Widget은 Widget Blueprint에서 온 것이 아니라 저장할 에셋이 없습니다."));
+	}
+
+	// 저장할 게 없는데 저장했다고 답하면, 미리보기만 해 놓고 끝난 걸 사용자가 눈치채지 못한다.
+	if (!FAIWidgetPersistentApplier::IsAssetDirty(Inspection))
+	{
+		return FAIWidgetMcpToolResult::Error(TEXT(
+			"바뀐 내용이 없어 저장하지 않았습니다. 미리보기만 했다면 에셋에는 아직 아무것도 쓰이지 않은 상태입니다. "
+			"apply_widget_change_to_asset을 먼저 불러야 합니다."));
+	}
+
+	FText SaveError;
+	if (!FAIWidgetPersistentApplier::SaveAsset(Inspection, SaveError))
+	{
+		return FAIWidgetMcpToolResult::Error(FString::Printf(TEXT("저장하지 못했습니다: %s"), *SaveError.ToString()));
+	}
+
+	return FAIWidgetMcpToolResult::Ok(FString::Printf(
+		TEXT("%s 를 저장했습니다. 이제 에디터를 닫아도 남습니다."), *Inspection.SourceAssetPath));
 }
 
 FAIWidgetMcpToolResult FAIWidgetMcpTools::RevertPreview()

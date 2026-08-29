@@ -78,6 +78,15 @@ public:
 		const FString& TargetWidget,
 		const FString& ValueJson);
 
+	/**
+	 * ApplyWidgetChangeToAsset으로 바꾼 Widget Blueprint를 디스크에 저장한다.
+	 *
+	 * 저장하고 나면 에디터를 닫아도 남는다. 여기까지 오면 Ctrl+Z로는 파일을 되돌릴 수 없다.
+	 * 사용자가 저장해 달라고 말했을 때만 부른다. 바뀐 게 없으면 그렇게 알려 준다.
+	 */
+	UFUNCTION(meta = (AICallable), Category = "AIWidgetInspector")
+	static AIWIDGETINSPECTOR_API FString SaveWidgetAsset();
+
 	/** PreviewWidgetChange로 바꾼 것을 모두 처음 값으로 되돌린다. 에셋에 쓴 변경은 대상이 아니다. */
 	UFUNCTION(meta = (AICallable), Category = "AIWidgetInspector")
 	static AIWIDGETINSPECTOR_API FString RevertPreview();

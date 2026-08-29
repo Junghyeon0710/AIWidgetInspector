@@ -46,10 +46,14 @@ public:
 	bool HasSelection() const;
 
 private:
+	/** 이름으로 갈라 준다. 결과 로깅을 한 곳에서 하려고 Call과 분리했다. */
+	FAIWidgetMcpToolResult Dispatch(const FString& InToolName, const TSharedPtr<FJsonObject>& InArguments);
+
 	FAIWidgetMcpToolResult GetSelectedWidget() const;
 	FAIWidgetMcpToolResult ListWidgetTree() const;
 	FAIWidgetMcpToolResult ApplyChange(const TSharedPtr<FJsonObject>& InArguments, bool bInWriteToAsset);
 	FAIWidgetMcpToolResult RevertPreview();
+	FAIWidgetMcpToolResult SaveAsset();
 
 	/** 지금 선택을 다시 검사한다. Tool은 언제 불릴지 모르므로 그때그때 새로 본다. */
 	FAIWidgetInspectionResult InspectSelection() const;

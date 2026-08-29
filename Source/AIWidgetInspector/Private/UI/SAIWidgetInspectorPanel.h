@@ -34,6 +34,9 @@ public:
 	SLATE_BEGIN_ARGS(SAIWidgetInspectorPanel) {}
 	SLATE_END_ARGS()
 
+	/** 패널에 포커스가 있을 때 단축키를 받는다. Ctrl+S가 전역 저장과 겹치지 않게 하려는 것이다. */
+	virtual FReply OnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+
 	void Construct(
 		const FArguments& InArgs,
 		const TSharedRef<FAIWidgetPicker>& InPicker,
@@ -95,6 +98,10 @@ private:
 	bool CanOpenBlueprint() const;
 	bool CanOpenSource() const;
 	bool CanSaveAsset() const;
+	void ExecuteSaveAsset();
+
+	/** 패널 안에서만 듣는 단축키. */
+	TSharedPtr<FUICommandList> PanelCommands;
 
 	ECheckBoxState GetHighlightSelectedState() const;
 	void HandleHighlightSelectedChanged(ECheckBoxState InNewState);

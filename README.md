@@ -123,6 +123,7 @@ directly:
 | `ListWidgetTree` | Every widget name and class in the owning UserWidget |
 | `PreviewWidgetChange` | Applies to the live instance; the asset is untouched |
 | `ApplyWidgetChangeToAsset` | Writes into the Widget Blueprint; Ctrl+Z undoes it |
+| `SaveWidgetAsset` | Writes the dirty Blueprint to disk |
 | `RevertPreview` | Restores every previewed property to its original |
 
 Picking **Claude Code (Unreal MCP)** and pressing **Request Change** runs the whole loop: the plugin
@@ -209,6 +210,23 @@ would otherwise apply as "the text disappeared".
 
 Applied changes are runtime previews, so **Revert Preview** undoes them. Writing to the Blueprint
 asset is a separate mechanism.
+
+### Saving
+
+Three steps, and they are deliberately three:
+
+| | Survives | How to undo |
+|---|---|---|
+| Preview | until the widget rebuilds | **Revert Preview** |
+| Apply to asset | until the editor closes | Ctrl+Z |
+| Save | permanently | reopen the file from source control |
+
+A preview never makes the asset dirty, so **Save Asset** stays greyed out after one — that is not a
+bug, there is nothing to save yet. Apply to the asset first.
+
+**Ctrl+S** saves while the inspector panel has focus. The binding lives on the panel's own command
+list rather than globally, so it does not shadow the editor's Ctrl+S anywhere else.
+**Ctrl+Shift+I** toggles Inspect Mode.
 
 ## Writing the change into the asset
 

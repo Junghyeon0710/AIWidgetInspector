@@ -124,6 +124,11 @@ FString UAIWidgetInspectorToolset::ApplyWidgetChangeToAsset(
 	return AIWidgetInspectorToolsetPrivate::ApplyChange(Operation, TargetWidget, ValueJson, /*bInWriteToAsset=*/true);
 }
 
+FString UAIWidgetInspectorToolset::SaveWidgetAsset()
+{
+	return AIWidgetInspectorToolsetPrivate::CallTool(TEXT("save_widget_asset"), MakeShared<FJsonObject>());
+}
+
 FString UAIWidgetInspectorToolset::RevertPreview()
 {
 	return AIWidgetInspectorToolsetPrivate::CallTool(TEXT("revert_preview"), MakeShared<FJsonObject>());

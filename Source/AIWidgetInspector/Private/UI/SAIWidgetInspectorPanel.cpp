@@ -4,6 +4,7 @@
 
 #include "AI/AIWidgetContextBuilder.h"
 #include "AIWidgetInspectorLog.h"
+#include "AIWidgetInspectorCommands.h"
 #include "AIWidgetInspectorModule.h"
 #include "Commands/AIWidgetCommand.h"
 #include "Commands/AIWidgetCommandParser.h"
@@ -69,6 +70,13 @@ void SAIWidgetInspectorPanel::Construct(
 	Highlighter = InHighlighter;
 
 	RuntimePreview = FAIWidgetInspectorModule::Get().GetRuntimePreview();
+
+	// 패널 전용 단축키. 전역이 아니라 여기 묶여 있어서 패널에 포커스가 있을 때만 듣는다.
+	PanelCommands = MakeShared<FUICommandList>();
+	PanelCommands->MapAction(
+		FAIWidgetInspectorCommands::Get().SaveWidgetAsset,
+		FExecuteAction::CreateSP(this, &SAIWidgetInspectorPanel::ExecuteSaveAsset),
+		FCanExecuteAction::CreateSP(this, &SAIWidgetInspectorPanel::CanSaveAsset));
 
 	Providers = FAIWidgetInspectorModule::Get().GetProviders();
 	if (Providers.Num() > 0)
@@ -1813,6 +1821,21 @@ FReply SAIWidgetInspectorPanel::HandleApplyToAssetClicked()
 bool SAIWidgetInspectorPanel::CanSaveAsset() const
 {
 	return FAIWidgetPersistentApplier::IsAssetDirty(CachedInspection);
+}
+
+void SAIWidgetInspectorPanel::ExecuteSaveAsset()
+{
+	HandleSaveAssetClicked();
+}
+
+FReply SAIWidgetInspectorPanel::OnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (PanelCommands.IsValid() && PanelCommands->ProcessCommandBindings(InKeyEvent))
+	{
+		return FReply::Handled();
+	}
+
+	return SCompoundWidget::OnKeyDown(InGeometry, InKeyEvent);
 }
 
 FReply SAIWidgetInspectorPanel::HandleSaveAssetClicked()
