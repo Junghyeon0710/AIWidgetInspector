@@ -31,6 +31,10 @@ struct FAIWidgetPreviewEntry
 	FText OriginalText;
 	float OriginalRenderOpacity = 1.0f;
 	FVector2D OriginalRenderTranslation = FVector2D::ZeroVector;
+	FLinearColor OriginalColorAndOpacity = FLinearColor::White;
+
+	/** 최초 적용 시점에 이 Widget이 고정된 색을 갖고 있었는지. 없었다면 되돌릴 것도 없다. */
+	bool bHadColorAndOpacity = false;
 };
 
 /**

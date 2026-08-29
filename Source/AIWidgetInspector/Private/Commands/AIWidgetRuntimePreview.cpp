@@ -22,6 +22,13 @@ bool FAIWidgetRuntimePreview::CanApply(const UWidget* InWidget, EAIWidgetOperati
 		return InWidget->IsA<UTextBlock>();
 	}
 
+	// 색도 마찬가지로 일부 타입에만 있다. 읽을 수 있어야 되돌릴 수도 있다.
+	if (InOperation == EAIWidgetOperation::SetColorAndOpacity)
+	{
+		FLinearColor Unused;
+		return FAIWidgetCommand::GetColorAndOpacity(InWidget, Unused);
+	}
+
 	return true;
 }
 
@@ -53,6 +60,18 @@ bool FAIWidgetRuntimePreview::IsNoOp(const UWidget* InWidget, const FAIWidgetCom
 		}
 		return false;
 
+	case EAIWidgetOperation::SetColorAndOpacity:
+	{
+		FLinearColor CurrentColor;
+		if (!FAIWidgetCommand::GetColorAndOpacity(InWidget, CurrentColor))
+		{
+			return false;
+		}
+
+		// 8비트로 떨어지는 값이라 정확히 같은 색을 다시 넣는 경우가 흔하다.
+		return CurrentColor.Equals(InCommand.ColorAndOpacity, UE_KINDA_SMALL_NUMBER);
+	}
+
 	default:
 		return false;
 	}
@@ -69,6 +88,8 @@ void FAIWidgetRuntimePreview::CaptureOriginal(const UWidget* InWidget, FAIWidget
 	{
 		OutEntry.OriginalText = AsTextBlock->GetText();
 	}
+
+	OutEntry.bHadColorAndOpacity = FAIWidgetCommand::GetColorAndOpacity(InWidget, OutEntry.OriginalColorAndOpacity);
 }
 
 void FAIWidgetRuntimePreview::RestoreOriginal(UWidget* InWidget, const FAIWidgetPreviewEntry& InEntry)
@@ -95,6 +116,17 @@ void FAIWidgetRuntimePreview::RestoreOriginal(UWidget* InWidget, const FAIWidget
 		if (UTextBlock* AsTextBlock = Cast<UTextBlock>(InWidget))
 		{
 			AsTextBlock->SetText(InEntry.OriginalText);
+		}
+		break;
+
+	case EAIWidgetOperation::SetColorAndOpacity:
+		// 원래 고정 색이 없었다면(Foreground 상속 등) 아무 색이나 써 넣는 것이
+		// 되돌리기가 아니다. 그 경우는 건드리지 않고 둔다.
+		if (InEntry.bHadColorAndOpacity)
+		{
+			FText RestoreError;
+			FAIWidgetCommand::MakeSetColorAndOpacity(InEntry.WidgetName, InEntry.OriginalColorAndOpacity)
+				.ApplyTo(InWidget, RestoreError);
 		}
 		break;
 

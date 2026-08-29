@@ -21,6 +21,7 @@ enum class EAIWidgetOperation : uint8
 	SetText,
 	SetRenderOpacity,
 	SetRenderTranslation,
+	SetColorAndOpacity,
 };
 
 /**
@@ -41,6 +42,7 @@ struct FAIWidgetCommand
 	FText Text;
 	float RenderOpacity = 1.0f;
 	FVector2D RenderTranslation = FVector2D::ZeroVector;
+	FLinearColor ColorAndOpacity = FLinearColor::White;
 
 	/**
 	 * 이 명령이 가리키는 속성을 Widget에 쓴다.
@@ -67,4 +69,26 @@ struct FAIWidgetCommand
 	static AIWIDGETINSPECTOR_API FAIWidgetCommand MakeSetText(FName InTargetWidgetName, const FText& InText);
 	static AIWIDGETINSPECTOR_API FAIWidgetCommand MakeSetRenderOpacity(FName InTargetWidgetName, float InOpacity);
 	static AIWIDGETINSPECTOR_API FAIWidgetCommand MakeSetRenderTranslation(FName InTargetWidgetName, const FVector2D& InTranslation);
+	static AIWIDGETINSPECTOR_API FAIWidgetCommand MakeSetColorAndOpacity(FName InTargetWidgetName, const FLinearColor& InColor);
+
+	/**
+	 * Widget이 지금 갖고 있는 색. 색을 가진 Widget이 아니면 false.
+	 *
+	 * ColorAndOpacity는 UWidget이 아니라 몇몇 구체 타입에만 있고, 타입마다 FSlateColor와
+	 * FLinearColor로 갈린다. 그 분기를 여기 한 곳에 모아 두고 미리보기와 검사기가 같이 쓴다.
+	 */
+	static AIWIDGETINSPECTOR_API bool GetColorAndOpacity(const UWidget* InWidget, FLinearColor& OutColor);
+
+	/**
+	 * "#RRGGBB" 또는 "#RRGGBBAA"를 읽는다. '#'은 있어도 없어도 된다.
+	 *
+	 * FColor::FromHex를 그냥 부르지 않는다. 그 함수는 형식이 틀리면 오류 없이 투명한 검정을
+	 * 돌려주기 때문에, 오타 하나가 "색이 사라짐"으로 조용히 적용된다. 여기서 먼저 막는다.
+	 *
+	 * 입력은 sRGB로 보고 선형으로 변환한다. 그러지 않으면 지정한 색보다 밝게 나온다.
+	 */
+	static AIWIDGETINSPECTOR_API bool ParseHexColor(const FString& InHex, FLinearColor& OutColor);
+
+	/** 선형 색을 "#RRGGBBAA" 표기로. 미리보기 목록과 AI에게 보여 줄 때 쓴다. */
+	static AIWIDGETINSPECTOR_API FString ToHexColor(const FLinearColor& InColor);
 };

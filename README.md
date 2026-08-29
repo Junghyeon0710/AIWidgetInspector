@@ -35,7 +35,7 @@ instead of pressing it. Everything returns to normal as soon as a widget is pick
 ## Runtime preview
 
 The **Runtime Preview** section changes the live `UWidget` instance and nothing else — visibility,
-enabled state, render opacity, render translation, and (on a `TextBlock`) its text. The asset on
+enabled state, render opacity, render translation, colour, and (on a `TextBlock`) its text. The asset on
 disk is untouched, and the change disappears when the widget is rebuilt. It answers "what would
 this look like" without committing to anything.
 
@@ -119,8 +119,9 @@ answer with an executable JSON block rather than prose:
 ```json
 {
   "changes": [
-    { "operation": "SetRenderOpacity", "target_widget": "Btn_Upgrade", "value": 0.5 },
-    { "operation": "SetText",          "target_widget": "Txt_Label",   "value": "Ultra" }
+    { "operation": "SetRenderOpacity",   "target_widget": "Btn_Upgrade", "value": 0.5 },
+    { "operation": "SetText",            "target_widget": "Txt_Label",   "value": "Ultra" },
+    { "operation": "SetColorAndOpacity", "target_widget": "Txt_Label",   "value": "#4FC3F7" }
   ]
 }
 ```
@@ -131,7 +132,7 @@ reason given. **Apply Preview** then runs only the entries that passed; **Cancel
 
 Nothing the model writes is executed as code. Every change goes through three gates:
 
-1. **Parse** — only the five whitelisted operations are recognised, and each one's `value` must be
+1. **Parse** — only the six whitelisted operations are recognised, and each one's `value` must be
    the JSON type that operation declares. `"true"` as a string is rejected for a boolean, because
    Unreal's lenient JSON conversion would silently turn `"yes"` into `false` and apply the opposite
    of what was asked.
@@ -139,6 +140,27 @@ Nothing the model writes is executed as code. Every change goes through three ga
    UserWidget, must accept that operation, and the value must be in range.
 3. **Apply** — the runtime executor re-checks the whitelist and skips anything that would not change
    the current value.
+
+### The whitelist
+
+| Operation | Value | Applies to |
+|---|---|---|
+| `SetVisibility` | one of `Visible` / `Collapsed` / `Hidden` / `HitTestInvisible` / `SelfHitTestInvisible` | any widget |
+| `SetEnabled` | boolean | any widget |
+| `SetRenderOpacity` | number, 0–1 | any widget |
+| `SetRenderTranslation` | `{ "x": number, "y": number }` | any widget |
+| `SetText` | string | `TextBlock` |
+| `SetColorAndOpacity` | `"#RRGGBB"` or `"#RRGGBBAA"` | `TextBlock`, `Image`, `Button`, `UserWidget` |
+
+Adding an operation means implementing it in the executor and registering it in four places — the
+enum, the name table, the parser's allowed list, and its value-type gate. That is deliberate
+friction: an operation cannot reach the widget by being named in a model's output alone.
+
+Colour strings are read as sRGB and converted to linear, because that is what the colour picker in
+the Details panel shows you. Skipping the conversion compiles and runs and simply produces colours
+brighter than the ones you asked for. Malformed strings are rejected rather than passed to
+`FColor::FromHex`, which answers transparent black for anything it cannot read — a single typo
+would otherwise apply as "the text disappeared".
 
 Applied changes are runtime previews, so **Revert Preview** undoes them. Writing to the Blueprint
 asset is a separate mechanism.

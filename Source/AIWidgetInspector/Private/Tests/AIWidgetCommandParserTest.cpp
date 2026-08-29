@@ -1,5 +1,6 @@
 // AI Widget Inspector
 
+#include "Commands/AIWidgetCommand.h"
 #include "Commands/AIWidgetCommandParser.h"
 
 #include "Misc/AutomationTest.h"
@@ -41,7 +42,7 @@ bool FAIWidgetCommandParserTest::RunTest(const FString& Parameters)
 		}
 	}
 
-	// --- 다섯 가지 Operation을 모두 읽는다 ---
+	// --- 여섯 가지 Operation을 모두 읽는다 ---
 	{
 		const FString Response = TEXT(
 			"{ \"changes\": ["
@@ -49,16 +50,17 @@ bool FAIWidgetCommandParserTest::RunTest(const FString& Parameters)
 			"  { \"operation\": \"SetEnabled\",           \"target_widget\": \"B\", \"value\": false },"
 			"  { \"operation\": \"SetText\",              \"target_widget\": \"C\", \"value\": \"Ultra\" },"
 			"  { \"operation\": \"SetRenderOpacity\",     \"target_widget\": \"D\", \"value\": 0.25 },"
-			"  { \"operation\": \"SetRenderTranslation\", \"target_widget\": \"E\", \"value\": { \"x\": 30, \"y\": -10 } }"
+			"  { \"operation\": \"SetRenderTranslation\", \"target_widget\": \"E\", \"value\": { \"x\": 30, \"y\": -10 } },"
+			"  { \"operation\": \"SetColorAndOpacity\",   \"target_widget\": \"F\", \"value\": \"#FF0000\" }"
 			"] }");
 
 		TArray<FAIWidgetCommand> Commands;
 		TArray<FText> Errors;
-		TestTrue(TEXT("다섯 건 모두 읽어야 한다"), FAIWidgetCommandParser::Parse(Response, Commands, Errors));
-		TestEqual(TEXT("명령 5건"), Commands.Num(), 5);
+		TestTrue(TEXT("여섯 건 모두 읽어야 한다"), FAIWidgetCommandParser::Parse(Response, Commands, Errors));
+		TestEqual(TEXT("명령 6건"), Commands.Num(), 6);
 		TestEqual(TEXT("오류 없음"), Errors.Num(), 0);
 
-		if (Commands.Num() == 5)
+		if (Commands.Num() == 6)
 		{
 			TestEqual(TEXT("Visibility"), static_cast<int32>(Commands[0].Visibility), static_cast<int32>(ESlateVisibility::Collapsed));
 			TestFalse(TEXT("Enabled"), Commands[1].bEnabled);
@@ -66,6 +68,7 @@ bool FAIWidgetCommandParserTest::RunTest(const FString& Parameters)
 			TestEqual(TEXT("Opacity"), Commands[3].RenderOpacity, 0.25f);
 			TestEqual(TEXT("Translation X"), Commands[4].RenderTranslation.X, 30.0);
 			TestEqual(TEXT("Translation Y"), Commands[4].RenderTranslation.Y, -10.0);
+			TestEqual(TEXT("Color"), FAIWidgetCommand::ToHexColor(Commands[5].ColorAndOpacity), FString(TEXT("#FF0000FF")));
 		}
 	}
 
@@ -166,6 +169,101 @@ bool FAIWidgetCommandParserTest::RunTest(const FString& Parameters)
 		{
 			TestEqual(TEXT("값이 온전해야 한다"), Commands[0].Text.ToString(), FString(TEXT("} 닫는 괄호 { 포함")));
 		}
+	}
+
+	// --- 색을 hex 문자열로 읽는다 ---
+	//
+	// FColor::FromHex는 형식이 틀려도 오류 없이 투명한 검정을 돌려준다. 그대로 쓰면
+	// 오타 하나가 "글자가 사라짐"으로 조용히 적용되므로, 거부해야 할 입력들을 같이 본다.
+	{
+		FLinearColor Color;
+
+		TestTrue(TEXT("#RRGGBB"), FAIWidgetCommand::ParseHexColor(TEXT("#FF0000"), Color));
+		TestTrue(TEXT("빨강이어야 한다"), Color.Equals(FLinearColor(1.0f, 0.0f, 0.0f, 1.0f), UE_KINDA_SMALL_NUMBER));
+
+		TestTrue(TEXT("# 없이도 된다"), FAIWidgetCommand::ParseHexColor(TEXT("00FF00"), Color));
+		TestTrue(TEXT("초록이어야 한다"), Color.Equals(FLinearColor(0.0f, 1.0f, 0.0f, 1.0f), UE_KINDA_SMALL_NUMBER));
+
+		TestTrue(TEXT("3자리 축약형"), FAIWidgetCommand::ParseHexColor(TEXT("#00F"), Color));
+		TestTrue(TEXT("파랑이어야 한다"), Color.Equals(FLinearColor(0.0f, 0.0f, 1.0f, 1.0f), UE_KINDA_SMALL_NUMBER));
+
+		TestTrue(TEXT("알파 포함"), FAIWidgetCommand::ParseHexColor(TEXT("#FF000080"), Color));
+		TestTrue(TEXT("알파가 반쯤이어야 한다"), FMath::IsNearlyEqual(Color.A, 128.0f / 255.0f, 0.01f));
+
+		TestTrue(TEXT("앞뒤 공백은 무시한다"), FAIWidgetCommand::ParseHexColor(TEXT("  #FF0000  "), Color));
+	}
+
+	// --- 색이 아닌 문자열은 거부한다 ---
+	{
+		FLinearColor Color;
+
+		TestFalse(TEXT("색 이름은 안 받는다"), FAIWidgetCommand::ParseHexColor(TEXT("red"), Color));
+		TestFalse(TEXT("hex가 아닌 문자"), FAIWidgetCommand::ParseHexColor(TEXT("#GG0000"), Color));
+		TestFalse(TEXT("자릿수 부족"), FAIWidgetCommand::ParseHexColor(TEXT("#FF00"), Color));
+		TestFalse(TEXT("자릿수 초과"), FAIWidgetCommand::ParseHexColor(TEXT("#1234567"), Color));
+		TestFalse(TEXT("빈 문자열"), FAIWidgetCommand::ParseHexColor(FString(), Color));
+		TestFalse(TEXT("# 하나"), FAIWidgetCommand::ParseHexColor(TEXT("#"), Color));
+	}
+
+	// --- sRGB로 해석한다 ---
+	//
+	// 이걸 빼먹으면 컴파일도 되고 테스트도 통과하는데 색만 실제보다 밝게 나온다.
+	// 중간 회색이 선형에서 0.5가 아니라는 점으로 변환이 실제로 걸렸는지 확인한다.
+	{
+		FLinearColor MidGray;
+		TestTrue(TEXT("중간 회색을 읽는다"), FAIWidgetCommand::ParseHexColor(TEXT("#808080"), MidGray));
+
+		TestTrue(
+			TEXT("8비트 값을 그냥 255로 나눈 값이면 안 된다"),
+			!FMath::IsNearlyEqual(MidGray.R, 128.0f / 255.0f, 0.05f));
+		TestTrue(TEXT("선형 중간 회색은 0.25 근처다"), FMath::IsNearlyEqual(MidGray.R, 0.2159f, 0.01f));
+	}
+
+	// --- hex로 다시 써도 같은 색이다 ---
+	//
+	// 변경 계획 줄에 이 값이 그대로 표시된다. 왕복에서 어긋나면 사용자가 요청한 색과
+	// 화면에 뜨는 색이 달라진다.
+	{
+		FLinearColor Color;
+		TestTrue(TEXT("읽는다"), FAIWidgetCommand::ParseHexColor(TEXT("#4FC3F7"), Color));
+		TestEqual(TEXT("알파를 붙여 되돌려준다"), FAIWidgetCommand::ToHexColor(Color), FString(TEXT("#4FC3F7FF")));
+	}
+
+	// --- JSON으로 들어온 색 명령을 읽는다 ---
+	{
+		const FString Response = TEXT(
+			"글자가 잘 안 보여서 밝은 파랑으로 바꿉니다.\n"
+			"```json\n"
+			"{ \"changes\": [ { \"operation\": \"SetColorAndOpacity\", \"target_widget\": \"Txt_UpgradeLabel\", \"value\": \"#4FC3F7\" } ] }\n"
+			"```\n");
+
+		TArray<FAIWidgetCommand> Commands;
+		TArray<FText> Errors;
+		TestTrue(TEXT("색 명령을 읽어야 한다"), FAIWidgetCommandParser::Parse(Response, Commands, Errors));
+		TestEqual(TEXT("명령 1건"), Commands.Num(), 1);
+
+		if (Commands.Num() == 1)
+		{
+			TestEqual(TEXT("Operation"), static_cast<int32>(Commands[0].Operation), static_cast<int32>(EAIWidgetOperation::SetColorAndOpacity));
+			TestEqual(TEXT("대상 이름"), Commands[0].TargetWidgetName, FName(TEXT("Txt_UpgradeLabel")));
+			TestEqual(TEXT("표기가 유지된다"), FAIWidgetCommand::ToHexColor(Commands[0].ColorAndOpacity), FString(TEXT("#4FC3F7FF")));
+		}
+	}
+
+	// --- 색 자리에 색이 아닌 값이 오면 거부한다 ---
+	{
+		const FString Response = TEXT(
+			"{ \"changes\": ["
+			"  { \"operation\": \"SetColorAndOpacity\", \"target_widget\": \"A\", \"value\": \"cornflower blue\" },"
+			"  { \"operation\": \"SetColorAndOpacity\", \"target_widget\": \"B\", \"value\": 16711680 }"
+			"] }");
+
+		TArray<FAIWidgetCommand> Commands;
+		TArray<FText> Errors;
+		FAIWidgetCommandParser::Parse(Response, Commands, Errors);
+
+		TestEqual(TEXT("둘 다 거부된다"), Commands.Num(), 0);
+		TestEqual(TEXT("각각 이유가 남는다"), Errors.Num(), 2);
 	}
 
 	return true;

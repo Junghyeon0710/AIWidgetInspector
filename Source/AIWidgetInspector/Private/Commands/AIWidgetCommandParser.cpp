@@ -31,16 +31,19 @@ FString FAIWidgetCommandParser::GetSchemaInstructions()
 		"    { \"operation\": \"SetEnabled\",           \"target_widget\": \"Btn_Upgrade\", \"value\": true },\n"
 		"    { \"operation\": \"SetText\",              \"target_widget\": \"Txt_Label\",   \"value\": \"초월\" },\n"
 		"    { \"operation\": \"SetRenderOpacity\",     \"target_widget\": \"Btn_Upgrade\", \"value\": 0.5 },\n"
-		"    { \"operation\": \"SetRenderTranslation\", \"target_widget\": \"Btn_Upgrade\", \"value\": { \"x\": 30, \"y\": 0 } }\n"
+		"    { \"operation\": \"SetRenderTranslation\", \"target_widget\": \"Btn_Upgrade\", \"value\": { \"x\": 30, \"y\": 0 } },\n"
+		"    { \"operation\": \"SetColorAndOpacity\",   \"target_widget\": \"Txt_Label\",   \"value\": \"#4FC3F7\" }\n"
 		"  ]\n"
 		"}\n"
 		"\n"
 		"규칙:\n"
-		"- operation은 위 5개만 허용된다. 그 외는 실행되지 않는다.\n"
+		"- operation은 위 6개만 허용된다. 그 외는 실행되지 않는다.\n"
 		"- target_widget은 위 Widget Path에 나온 UMG 이름 중 하나여야 한다.\n"
 		"- value 타입은 operation이 정한다.\n"
 		"  Visibility = Visible / Collapsed / Hidden / HitTestInvisible / SelfHitTestInvisible 중 하나(문자열)\n"
 		"  Enabled = 불리언, Text = 문자열, RenderOpacity = 0~1 숫자, RenderTranslation = {x, y} 숫자 오브젝트\n"
+		"  ColorAndOpacity = \"#RRGGBB\" 또는 \"#RRGGBBAA\" 문자열. sRGB로 해석한다.\n"
+		"  ColorAndOpacity는 TextBlock / Image / Button / UserWidget에만 적용된다. 그 외 타입에는 거부된다.\n"
 		"- 크기/위치를 Slot으로 바꿔야 하는 요청은 아직 지원하지 않는다. 그런 경우 changes를 비우고 이유를 설명해라.\n");
 }
 
@@ -111,6 +114,7 @@ bool FAIWidgetCommandParser::ParseOperation(const FString& InOperationName, EAIW
 		EAIWidgetOperation::SetText,
 		EAIWidgetOperation::SetRenderOpacity,
 		EAIWidgetOperation::SetRenderTranslation,
+		EAIWidgetOperation::SetColorAndOpacity,
 	};
 
 	for (EAIWidgetOperation Operation : AllowedOperations)
@@ -131,6 +135,7 @@ bool FAIWidgetCommandParser::HasExpectedValueType(EAIWidgetOperation InOperation
 	{
 	case EAIWidgetOperation::SetVisibility:
 	case EAIWidgetOperation::SetText:
+	case EAIWidgetOperation::SetColorAndOpacity:
 		return InValueType == EJson::String;
 
 	case EAIWidgetOperation::SetEnabled:
@@ -287,6 +292,27 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 		}
 
 		OutCommand.RenderTranslation = FVector2D(TranslationX, TranslationY);
+		return true;
+	}
+
+	case EAIWidgetOperation::SetColorAndOpacity:
+	{
+		FString HexValue;
+		if (!ValueField->TryGetString(HexValue))
+		{
+			OutError = FText::Format(LOCTEXT("ColorNotString", "changes[{0}]: ColorAndOpacity value는 문자열이어야 합니다."), FText::AsNumber(InIndex));
+			return false;
+		}
+
+		if (!FAIWidgetCommand::ParseHexColor(HexValue, OutCommand.ColorAndOpacity))
+		{
+			OutError = FText::Format(
+				LOCTEXT("ColorNotHex", "changes[{0}]: '{1}'은(는) 색으로 읽을 수 없습니다. #RRGGBB 또는 #RRGGBBAA 형식이어야 합니다."),
+				FText::AsNumber(InIndex),
+				FText::FromString(HexValue));
+			return false;
+		}
+
 		return true;
 	}
 

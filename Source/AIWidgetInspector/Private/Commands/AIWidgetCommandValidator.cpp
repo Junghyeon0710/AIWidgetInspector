@@ -71,6 +71,19 @@ FString FAIWidgetCommandValidator::DescribeCurrentValue(const UWidget* InWidget,
 		return FString::Printf(TEXT("%.0f, %.0f"), Translation.X, Translation.Y);
 	}
 
+	case EAIWidgetOperation::SetColorAndOpacity:
+	{
+		FLinearColor CurrentColor;
+		if (FAIWidgetCommand::GetColorAndOpacity(InWidget, CurrentColor))
+		{
+			return FAIWidgetCommand::ToHexColor(CurrentColor);
+		}
+
+		// 고정된 색이 없는 경우다. 빈 문자열을 두면 계획 줄이 "-> #FF0000"처럼 보여
+		// 원래 색이 없었던 건지 못 읽은 건지 구분이 안 된다.
+		return FString(TEXT("(고정 색 없음)"));
+	}
+
 	case EAIWidgetOperation::SetText:
 		if (const UTextBlock* AsTextBlock = Cast<UTextBlock>(InWidget))
 		{
@@ -118,6 +131,16 @@ FAIWidgetCommandValidation FAIWidgetCommandValidator::Validate(const FAIWidgetCo
 	}
 
 	// 4. 값이 범위 안이어야 한다.
+	if (InCommand.Operation == EAIWidgetOperation::SetColorAndOpacity)
+	{
+		const FLinearColor& Color = InCommand.ColorAndOpacity;
+		if (!FMath::IsFinite(Color.R) || !FMath::IsFinite(Color.G) || !FMath::IsFinite(Color.B) || !FMath::IsFinite(Color.A))
+		{
+			Result.Error = LOCTEXT("ColorNotFinite", "색 값이 올바르지 않습니다.");
+			return Result;
+		}
+	}
+
 	if (InCommand.Operation == EAIWidgetOperation::SetRenderOpacity)
 	{
 		if (!FMath::IsFinite(InCommand.RenderOpacity) || InCommand.RenderOpacity < 0.0f || InCommand.RenderOpacity > 1.0f)
