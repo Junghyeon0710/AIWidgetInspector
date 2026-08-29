@@ -213,7 +213,16 @@ asset is a separate mechanism.
 
 ### Saving
 
-Three steps, and they are deliberately three:
+**Save to Asset**, in the Runtime Preview section, takes whatever is currently previewed, writes it
+into the Widget Blueprint, and saves — one click, no typing. It reads the live widget rather than
+the preview record, because the record keeps the *original* value in order to revert; the value you
+are looking at is on the widget.
+
+Committed previews are then dropped from the list rather than reverted. Once the values are in the
+asset they are not temporary any more, and leaving them in would let **Revert Preview** undo what
+was just saved, leaving the screen and the asset disagreeing.
+
+Underneath it is still three steps, and they stay separable:
 
 | | Survives | How to undo |
 |---|---|---|

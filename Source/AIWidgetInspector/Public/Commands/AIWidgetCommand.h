@@ -80,6 +80,18 @@ struct FAIWidgetCommand
 	static AIWIDGETINSPECTOR_API bool GetColorAndOpacity(const UWidget* InWidget, FLinearColor& OutColor);
 
 	/**
+	 * Widget이 지금 갖고 있는 값을 명령으로 만든다.
+	 *
+	 * 미리보기를 에셋으로 넘길 때 쓴다. 미리보기 항목은 되돌리려고 '처음 값'만 들고 있어서,
+	 * 지금 화면에 보이는 값은 Widget에서 직접 읽어야 한다.
+	 */
+	static AIWIDGETINSPECTOR_API bool CaptureFrom(
+		const UWidget* InWidget,
+		EAIWidgetOperation InOperation,
+		FName InTargetWidgetName,
+		FAIWidgetCommand& OutCommand);
+
+	/**
 	 * "#RRGGBB" 또는 "#RRGGBBAA"를 읽는다. '#'은 있어도 없어도 된다.
 	 *
 	 * FColor::FromHex를 그냥 부르지 않는다. 그 함수는 형식이 틀리면 오류 없이 투명한 검정을

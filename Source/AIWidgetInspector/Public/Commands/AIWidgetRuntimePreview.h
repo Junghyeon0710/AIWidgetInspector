@@ -60,6 +60,15 @@ public:
 
 	void RevertAll();
 
+	/**
+	 * 되돌리지 않고 목록만 비운다.
+	 *
+	 * 미리보기를 에셋에 써 넣은 뒤에 쓴다. 그 시점에는 미리보기 값이 곧 에셋 값이라
+	 * 더 이상 임시가 아니다. 항목을 남겨 두면 Revert가 방금 저장한 값을 처음 값으로
+	 * 되돌려서, 화면과 에셋이 어긋난 채로 남는다.
+	 */
+	void ForgetAll();
+
 	int32 Num() const { return Entries.Num(); }
 	const TArray<FAIWidgetPreviewEntry>& GetEntries() const { return Entries; }
 

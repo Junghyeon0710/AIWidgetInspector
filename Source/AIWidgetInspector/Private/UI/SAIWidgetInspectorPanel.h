@@ -136,6 +136,11 @@ private:
 	FText GetRevertPreviewText() const;
 	FReply HandleRevertPreviewClicked();
 
+	/** 지금 미리보기 중인 값들을 에셋에 쓰고 저장까지 한 번에 한다. */
+	FReply HandleCommitPreviewClicked();
+	bool CanCommitPreview() const;
+	FText GetCommitPreviewText() const;
+
 	FText GetPreviewErrorText() const { return PreviewErrorText; }
 	EVisibility GetPreviewErrorVisibility() const;
 	//~ End Runtime Preview

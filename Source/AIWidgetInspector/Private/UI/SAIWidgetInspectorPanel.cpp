@@ -1038,6 +1038,19 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildPreviewSection()
 
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
+			.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+			[
+				SNew(SButton)
+				.Text(this, &SAIWidgetInspectorPanel::GetCommitPreviewText)
+				.ToolTipText(LOCTEXT("CommitPreviewTooltip",
+					"지금 미리보기 중인 값을 Widget Blueprint에 쓰고 저장한다. "
+					"저장 전까지는 Ctrl+Z로 되돌릴 수 있지만, 저장하고 나면 파일에 남는다."))
+				.IsEnabled(this, &SAIWidgetInspectorPanel::CanCommitPreview)
+				.OnClicked(this, &SAIWidgetInspectorPanel::HandleCommitPreviewClicked)
+			]
+
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
 			[
 				SNew(SButton)
 				.Text(this, &SAIWidgetInspectorPanel::GetRevertPreviewText)
@@ -1191,6 +1204,89 @@ FText SAIWidgetInspectorPanel::GetRevertPreviewText() const
 	return PreviewCount > 0
 		? FText::Format(LOCTEXT("RevertPreviewCount", "Revert Preview ({0})"), FText::AsNumber(PreviewCount))
 		: LOCTEXT("RevertPreview", "Revert Preview");
+}
+
+FText SAIWidgetInspectorPanel::GetCommitPreviewText() const
+{
+	const int32 PreviewCount = RuntimePreview.IsValid() ? RuntimePreview->Num() : 0;
+	return PreviewCount > 0
+		? FText::Format(LOCTEXT("CommitPreviewCount", "Save to Asset ({0})"), FText::AsNumber(PreviewCount))
+		: LOCTEXT("CommitPreview", "Save to Asset");
+}
+
+bool SAIWidgetInspectorPanel::CanCommitPreview() const
+{
+	return HasPreviews() && FAIWidgetPersistentApplier::CanApply(CachedInspection);
+}
+
+FReply SAIWidgetInspectorPanel::HandleCommitPreviewClicked()
+{
+	if (!RuntimePreview.IsValid())
+	{
+		return FReply::Handled();
+	}
+
+	// 미리보기 항목은 되돌리려고 '처음 값'만 들고 있다. 에셋에 넣을 것은 지금 값이므로
+	// 살아 있는 Widget에서 다시 읽는다.
+	TArray<FAIWidgetCommand> CommandsToApply;
+	for (const FAIWidgetPreviewEntry& Entry : RuntimePreview->GetEntries())
+	{
+		const UWidget* Widget = Entry.Widget.Get();
+		if (!Widget)
+		{
+			continue;
+		}
+
+		FAIWidgetCommand Command;
+		if (FAIWidgetCommand::CaptureFrom(Widget, Entry.Operation, Entry.WidgetName, Command))
+		{
+			CommandsToApply.Add(MoveTemp(Command));
+		}
+	}
+
+	if (CommandsToApply.IsEmpty())
+	{
+		ChangePlanStatusText = LOCTEXT("CommitNothing", "에셋에 넘길 미리보기가 없습니다.");
+		return FReply::Handled();
+	}
+
+	const FAIWidgetPersistentResult Result = FAIWidgetPersistentApplier::Apply(CommandsToApply, CachedInspection);
+
+	// 컴파일이 선택을 죽이기 전에 저장할 손잡이를 잡아 둔다.
+	if (Result.Blueprint.IsValid())
+	{
+		FAIWidgetInspectorModule::Get().SetLastAppliedBlueprint(Result.Blueprint.Get());
+	}
+
+	if (Result.AppliedCount == 0)
+	{
+		ChangePlanStatusText = Result.Error.IsEmpty()
+			? LOCTEXT("CommitNothingApplied", "에셋에 적용된 변경이 없습니다.")
+			: Result.Error;
+		return FReply::Handled();
+	}
+
+	FText SaveError;
+	if (!FAIWidgetPersistentApplier::SaveAsset(Result.Blueprint.Get(), SaveError))
+	{
+		// 적용은 됐고 저장만 실패한 상태다. 여기서 "실패"라고만 하면 사용자가
+		// 아무 일도 안 일어난 줄 알고 다시 누른다.
+		ChangePlanStatusText = FText::Format(
+			LOCTEXT("CommitAppliedNotSaved", "에셋에 {0}건 적용했지만 저장하지 못했습니다: {1}"),
+			FText::AsNumber(Result.AppliedCount),
+			SaveError);
+		return FReply::Handled();
+	}
+
+	// 에셋에 들어갔으므로 미리보기는 더 이상 '임시'가 아니다. 목록에 남겨 두면
+	// Revert가 방금 저장한 값을 되돌려 에셋과 화면이 어긋난다.
+	RuntimePreview->ForgetAll();
+
+	ChangePlanStatusText = FText::Format(
+		LOCTEXT("CommitSaved", "{0}건을 에셋에 적용하고 저장했습니다."),
+		FText::AsNumber(Result.AppliedCount));
+
+	return FReply::Handled();
 }
 
 FReply SAIWidgetInspectorPanel::HandleRevertPreviewClicked()

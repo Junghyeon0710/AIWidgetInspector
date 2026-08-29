@@ -108,6 +108,55 @@ bool FAIWidgetCommand::ParseHexColor(const FString& InHex, FLinearColor& OutColo
 	return true;
 }
 
+bool FAIWidgetCommand::CaptureFrom(
+	const UWidget* InWidget,
+	EAIWidgetOperation InOperation,
+	FName InTargetWidgetName,
+	FAIWidgetCommand& OutCommand)
+{
+	if (!InWidget)
+	{
+		return false;
+	}
+
+	OutCommand = FAIWidgetCommand();
+	OutCommand.Operation = InOperation;
+	OutCommand.TargetWidgetName = InTargetWidgetName;
+
+	switch (InOperation)
+	{
+	case EAIWidgetOperation::SetVisibility:
+		OutCommand.Visibility = InWidget->GetVisibility();
+		return true;
+
+	case EAIWidgetOperation::SetEnabled:
+		OutCommand.bEnabled = InWidget->GetIsEnabled();
+		return true;
+
+	case EAIWidgetOperation::SetRenderOpacity:
+		OutCommand.RenderOpacity = InWidget->GetRenderOpacity();
+		return true;
+
+	case EAIWidgetOperation::SetRenderTranslation:
+		OutCommand.RenderTranslation = InWidget->GetRenderTransform().Translation;
+		return true;
+
+	case EAIWidgetOperation::SetText:
+		if (const UTextBlock* AsTextBlock = Cast<UTextBlock>(InWidget))
+		{
+			OutCommand.Text = AsTextBlock->GetText();
+			return true;
+		}
+		return false;
+
+	case EAIWidgetOperation::SetColorAndOpacity:
+		return GetColorAndOpacity(InWidget, OutCommand.ColorAndOpacity);
+
+	default:
+		return false;
+	}
+}
+
 FString FAIWidgetCommand::ToHexColor(const FLinearColor& InColor)
 {
 	return FString::Printf(TEXT("#%s"), *InColor.ToFColor(/*bSRGB=*/true).ToHex());

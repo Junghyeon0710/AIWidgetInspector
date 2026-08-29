@@ -236,4 +236,15 @@ void FAIWidgetRuntimePreview::RevertAll()
 	ChangedEvent.Broadcast();
 }
 
+void FAIWidgetRuntimePreview::ForgetAll()
+{
+	if (Entries.IsEmpty())
+	{
+		return;
+	}
+
+	Entries.Reset();
+	ChangedEvent.Broadcast();
+}
+
 #undef LOCTEXT_NAMESPACE
