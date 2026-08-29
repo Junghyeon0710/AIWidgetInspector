@@ -1332,9 +1332,19 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildAskAISection()
 
 TSharedRef<SWidget> SAIWidgetInspectorPanel::HandleGenerateProviderItem(FProviderPtr InProvider)
 {
+	// 이름은 변하지 않지만 설명은 변한다. CLI를 찾았는지 여부가 거기 들어가는데,
+	// 목록을 만든 뒤에 CLI를 설치하는 일이 실제로 있다. 값을 굳혀 두면 이미 깔린
+	// 도구를 두고 "PATH에서 찾지 못했습니다"가 계속 떠서 설치가 실패한 것처럼 보인다.
+	TWeakPtr<IAIWidgetProvider> WeakProvider = InProvider;
+
 	return SNew(STextBlock)
 		.Text(InProvider.IsValid() ? InProvider->GetDisplayName() : FText::GetEmpty())
-		.ToolTipText(InProvider.IsValid() ? InProvider->GetDescription() : FText::GetEmpty());
+		.ToolTipText_Lambda([WeakProvider]()
+		{
+			// Provider는 모듈이 소유한다. 목록 위젯이 그 수명을 붙들지 않도록 약한 참조로 본다.
+			const TSharedPtr<IAIWidgetProvider> Provider = WeakProvider.Pin();
+			return Provider.IsValid() ? Provider->GetDescription() : FText::GetEmpty();
+		});
 }
 
 void SAIWidgetInspectorPanel::HandleProviderChanged(FProviderPtr InProvider, ESelectInfo::Type InSelectInfo)
