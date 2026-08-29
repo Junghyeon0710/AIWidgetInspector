@@ -157,14 +157,14 @@ bool FAIWidgetRuntimePreview::Apply(UWidget* InWidget, const FAIWidgetCommand& I
 {
 	if (!InWidget)
 	{
-		OutError = LOCTEXT("NoWidget", "적용할 UMG Widget이 없습니다. 선택된 Widget이 순수 Slate일 수 있습니다.");
+		OutError = LOCTEXT("NoWidget", "There is no UMG widget to apply to. The selection may be pure Slate.");
 		return false;
 	}
 
 	if (!FAIWidgetCommand::IsRuntimeSupported(InCommand.Operation))
 	{
 		OutError = FText::Format(
-			LOCTEXT("NotWhitelisted", "허용되지 않은 Operation입니다: {0}"),
+			LOCTEXT("NotWhitelisted", "Operation not allowed: {0}"),
 			FText::FromString(FAIWidgetCommand::GetOperationName(InCommand.Operation)));
 		return false;
 	}
@@ -208,7 +208,7 @@ bool FAIWidgetRuntimePreview::Apply(UWidget* InWidget, const FAIWidgetCommand& I
 		Entries.Add(MoveTemp(NewEntry));
 	}
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("런타임 미리보기 적용: %s.%s"),
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("Runtime preview applied: %s.%s"),
 		*InWidget->GetName(), *InCommand.Describe());
 
 	ChangedEvent.Broadcast();
@@ -230,7 +230,7 @@ void FAIWidgetRuntimePreview::RevertAll()
 		}
 	}
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("런타임 미리보기 %d건을 되돌렸습니다."), Entries.Num());
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("Reverted %d runtime preview(s)."), Entries.Num());
 
 	Entries.Reset();
 	ChangedEvent.Broadcast();

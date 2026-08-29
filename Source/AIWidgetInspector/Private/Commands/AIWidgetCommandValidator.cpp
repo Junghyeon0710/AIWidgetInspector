@@ -81,7 +81,7 @@ FString FAIWidgetCommandValidator::DescribeCurrentValue(const UWidget* InWidget,
 
 		// 고정된 색이 없는 경우다. 빈 문자열을 두면 계획 줄이 "-> #FF0000"처럼 보여
 		// 원래 색이 없었던 건지 못 읽은 건지 구분이 안 된다.
-		return FString(TEXT("(고정 색 없음)"));
+		return FString(TEXT("(no fixed colour)"));
 	}
 
 	case EAIWidgetOperation::SetText:
@@ -104,7 +104,7 @@ FAIWidgetCommandValidation FAIWidgetCommandValidator::Validate(const FAIWidgetCo
 	if (!FAIWidgetCommand::IsRuntimeSupported(InCommand.Operation))
 	{
 		Result.Error = FText::Format(
-			LOCTEXT("NotSupported", "허용되지 않은 Operation입니다: {0}"),
+			LOCTEXT("NotSupported", "Operation not allowed: {0}"),
 			FText::FromString(FAIWidgetCommand::GetOperationName(InCommand.Operation)));
 		return Result;
 	}
@@ -114,7 +114,7 @@ FAIWidgetCommandValidation FAIWidgetCommandValidator::Validate(const FAIWidgetCo
 	if (!TargetWidget)
 	{
 		Result.Error = FText::Format(
-			LOCTEXT("TargetNotFound", "'{0}'을(를) 찾지 못했습니다. 선택된 Widget이나 같은 UserWidget 안에 없습니다."),
+			LOCTEXT("TargetNotFound", "'{0}' was not found. It is neither the selected widget nor a sibling in the same UserWidget."),
 			FText::FromName(InCommand.TargetWidgetName));
 		return Result;
 	}
@@ -123,7 +123,7 @@ FAIWidgetCommandValidation FAIWidgetCommandValidator::Validate(const FAIWidgetCo
 	if (!FAIWidgetRuntimePreview::CanApply(TargetWidget, InCommand.Operation))
 	{
 		Result.Error = FText::Format(
-			LOCTEXT("CannotApply", "{0}({1})에는 {2}를 적용할 수 없습니다."),
+			LOCTEXT("CannotApply", "{2} cannot be applied to {0} ({1})."),
 			FText::FromString(TargetWidget->GetName()),
 			FText::FromString(TargetWidget->GetClass()->GetName()),
 			FText::FromString(FAIWidgetCommand::GetOperationName(InCommand.Operation)));
@@ -136,7 +136,7 @@ FAIWidgetCommandValidation FAIWidgetCommandValidator::Validate(const FAIWidgetCo
 		const FLinearColor& Color = InCommand.ColorAndOpacity;
 		if (!FMath::IsFinite(Color.R) || !FMath::IsFinite(Color.G) || !FMath::IsFinite(Color.B) || !FMath::IsFinite(Color.A))
 		{
-			Result.Error = LOCTEXT("ColorNotFinite", "색 값이 올바르지 않습니다.");
+			Result.Error = LOCTEXT("ColorNotFinite", "The colour value is not valid.");
 			return Result;
 		}
 	}
@@ -146,7 +146,7 @@ FAIWidgetCommandValidation FAIWidgetCommandValidator::Validate(const FAIWidgetCo
 		if (!FMath::IsFinite(InCommand.RenderOpacity) || InCommand.RenderOpacity < 0.0f || InCommand.RenderOpacity > 1.0f)
 		{
 			Result.Error = FText::Format(
-				LOCTEXT("OpacityOutOfRange", "RenderOpacity는 0에서 1 사이여야 합니다. 받은 값: {0}"),
+				LOCTEXT("OpacityOutOfRange", "RenderOpacity must be between 0 and 1. Got: {0}"),
 				FText::AsNumber(InCommand.RenderOpacity));
 			return Result;
 		}
@@ -156,7 +156,7 @@ FAIWidgetCommandValidation FAIWidgetCommandValidator::Validate(const FAIWidgetCo
 	{
 		if (!FMath::IsFinite(InCommand.RenderTranslation.X) || !FMath::IsFinite(InCommand.RenderTranslation.Y))
 		{
-			Result.Error = LOCTEXT("TranslationNotFinite", "RenderTranslation 값이 유효한 숫자가 아닙니다.");
+			Result.Error = LOCTEXT("TranslationNotFinite", "RenderTranslation is not a valid pair of numbers.");
 			return Result;
 		}
 	}

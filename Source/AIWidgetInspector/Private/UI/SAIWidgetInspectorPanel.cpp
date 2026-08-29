@@ -183,7 +183,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildHeader()
 			[
 				SNew(SButton)
 				.Text(this, &SAIWidgetInspectorPanel::GetInspectButtonText)
-				.ToolTipText(LOCTEXT("InspectTooltip", "Inspect Mode를 켠다. UI 위에서 클릭하면 그 Widget이 선택되고, ESC 또는 우클릭이면 취소된다."))
+				.ToolTipText(LOCTEXT("InspectTooltip", "Turn on Inspect Mode. Click any widget to select it; Esc or right-click cancels."))
 				.OnClicked(this, &SAIWidgetInspectorPanel::HandleToggleInspectClicked)
 			]
 
@@ -195,7 +195,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildHeader()
 				SNew(SCheckBox)
 				.IsChecked(this, &SAIWidgetInspectorPanel::GetHighlightSelectedState)
 				.OnCheckStateChanged(this, &SAIWidgetInspectorPanel::HandleHighlightSelectedChanged)
-				.ToolTipText(LOCTEXT("HighlightTooltip", "선택된 Widget의 테두리를 계속 표시한다."))
+				.ToolTipText(LOCTEXT("HighlightTooltip", "Keep drawing an outline around the selected widget."))
 				[
 					SNew(STextBlock)
 					.Text(LOCTEXT("HighlightSelected", "Highlight Selected"))
@@ -315,7 +315,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildUMGSection()
 		.Padding(0.0f, 0.0f, 0.0f, 2.0f)
 		[
 			SNew(STextBlock)
-			.Text(LOCTEXT("AncestorMetaData", "이 Slate Widget에는 UMG 꼬리표가 없어 상위 Widget의 정보를 표시합니다."))
+			.Text(LOCTEXT("AncestorMetaData", "This Slate widget has no UMG metadata, so the values shown come from an ancestor."))
 			.Visibility(this, &SAIWidgetInspectorPanel::GetAncestorMetaDataNoticeVisibility)
 			.ColorAndOpacity(FLinearColor(1.0f, 0.75f, 0.35f))
 			.AutoWrapText(true)
@@ -415,7 +415,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildSourceSection()
 			[
 				SNew(SButton)
 				.Text(LOCTEXT("OpenBlueprint", "Open Blueprint"))
-				.ToolTipText(LOCTEXT("OpenBlueprintTooltip", "이 Widget을 만든 Widget Blueprint 에셋을 연다."))
+				.ToolTipText(LOCTEXT("OpenBlueprintTooltip", "Open the Widget Blueprint asset that created this widget."))
 				.IsEnabled(this, &SAIWidgetInspectorPanel::CanOpenBlueprint)
 				.OnClicked(this, &SAIWidgetInspectorPanel::HandleOpenBlueprintClicked)
 			]
@@ -426,7 +426,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildSourceSection()
 			[
 				SNew(SButton)
 				.Text(LOCTEXT("OpenSource", "Open Source"))
-				.ToolTipText(LOCTEXT("OpenSourceTooltip", "이 Slate Widget이 생성된 C++ 위치를 IDE에서 연다."))
+				.ToolTipText(LOCTEXT("OpenSourceTooltip", "Open the C++ location that created this widget in your IDE."))
 				.IsEnabled(this, &SAIWidgetInspectorPanel::CanOpenSource)
 				.OnClicked(this, &SAIWidgetInspectorPanel::HandleOpenSourceClicked)
 			]
@@ -436,7 +436,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildSourceSection()
 			[
 				SNew(SButton)
 				.Text(LOCTEXT("SaveAsset", "Save Asset"))
-				.ToolTipText(LOCTEXT("SaveAssetTooltip", "변경된 Widget Blueprint를 저장한다. 저장 전까지는 Ctrl+Z로 되돌릴 수 있다."))
+				.ToolTipText(LOCTEXT("SaveAssetTooltip", "Save the changed Widget Blueprint. Until you save, Ctrl+Z still undoes it."))
 				.IsEnabled(this, &SAIWidgetInspectorPanel::CanSaveAsset)
 				.OnClicked(this, &SAIWidgetInspectorPanel::HandleSaveAssetClicked)
 			]
@@ -468,7 +468,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildPathList()
 			[
 				SNew(SButton)
 				.Text(LOCTEXT("Parent", "Parent"))
-				.ToolTipText(LOCTEXT("ParentTooltip", "한 단계 바깥 Widget을 선택한다. 클릭이 STextBlock을 잡았을 때 SButton으로 올라가는 용도."))
+				.ToolTipText(LOCTEXT("ParentTooltip", "Select the widget one step outwards, for when a click landed on the label instead of the button."))
 				.IsEnabled(this, &SAIWidgetInspectorPanel::CanSelectParent)
 				.OnClicked(this, &SAIWidgetInspectorPanel::HandleSelectParentClicked)
 			]
@@ -478,7 +478,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildPathList()
 			[
 				SNew(SButton)
 				.Text(LOCTEXT("Child", "Child"))
-				.ToolTipText(LOCTEXT("ChildTooltip", "경로를 따라 한 단계 안쪽 Widget을 선택한다."))
+				.ToolTipText(LOCTEXT("ChildTooltip", "Select the widget one step inwards along the path."))
 				.IsEnabled(this, &SAIWidgetInspectorPanel::CanSelectChild)
 				.OnClicked(this, &SAIWidgetInspectorPanel::HandleSelectChildClicked)
 			]
@@ -685,21 +685,21 @@ FText SAIWidgetInspectorPanel::GetStatusText() const
 {
 	if (Picker->IsInspecting())
 	{
-		return LOCTEXT("StatusInspecting", "Inspect Mode: UI 위에서 클릭하면 선택됩니다. ESC 또는 우클릭으로 취소.");
+		return LOCTEXT("StatusInspecting", "Inspect Mode: click any widget to select it. Esc or right-click cancels.");
 	}
 
 	if (!Selection->IsValid())
 	{
-		return LOCTEXT("StatusEmpty", "선택된 Widget이 없습니다.");
+		return LOCTEXT("StatusEmpty", "No widget is selected.");
 	}
 
 	if (!Selection->GetSelectedWidget().IsValid())
 	{
-		return LOCTEXT("StatusDestroyed", "선택했던 Widget이 이미 파괴되었습니다.");
+		return LOCTEXT("StatusDestroyed", "The selected widget no longer exists.");
 	}
 
 	return FText::Format(
-		LOCTEXT("StatusSelected", "경로 깊이 {0} 중 {1}번째."),
+		LOCTEXT("StatusSelected", "Step {1} of {0} in the path."),
 		FText::AsNumber(Selection->Num()),
 		FText::AsNumber(Selection->GetSelectedIndex() + 1));
 }
@@ -853,7 +853,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildPreviewSection()
 		.Padding(0.0f, 0.0f, 0.0f, 4.0f)
 		[
 			SNew(STextBlock)
-			.Text(LOCTEXT("PreviewNotice", "살아있는 Widget 인스턴스에만 적용됩니다. 에셋은 바뀌지 않고, Widget이 다시 만들어지면 사라집니다."))
+			.Text(LOCTEXT("PreviewNotice", "Applies to the live widget only. The asset is untouched, and the change goes away when the widget is rebuilt."))
 			.ColorAndOpacity(FSlateColor::UseSubduedForeground())
 			.AutoWrapText(true)
 		]
@@ -1013,7 +1013,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildPreviewSection()
 			[
 				SNew(SEditableTextBox)
 				.IsEnabled(this, &SAIWidgetInspectorPanel::CanPreviewText)
-				.HintText(LOCTEXT("PreviewTextHint", "TextBlock을 선택하면 입력할 수 있습니다."))
+				.HintText(LOCTEXT("PreviewTextHint", "Select a TextBlock to type here."))
 				.Text(this, &SAIWidgetInspectorPanel::GetPreviewText)
 				.OnTextCommitted(this, &SAIWidgetInspectorPanel::HandlePreviewTextCommitted)
 			]
@@ -1043,8 +1043,8 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildPreviewSection()
 				SNew(SButton)
 				.Text(this, &SAIWidgetInspectorPanel::GetCommitPreviewText)
 				.ToolTipText(LOCTEXT("CommitPreviewTooltip",
-					"지금 미리보기 중인 값을 Widget Blueprint에 쓰고 저장한다. "
-					"저장 전까지는 Ctrl+Z로 되돌릴 수 있지만, 저장하고 나면 파일에 남는다."))
+					"Write the current preview into the Widget Blueprint and save it. "
+					"Ctrl+Z undoes it until you save; after saving it is in the file."))
 				.IsEnabled(this, &SAIWidgetInspectorPanel::CanCommitPreview)
 				.OnClicked(this, &SAIWidgetInspectorPanel::HandleCommitPreviewClicked)
 			]
@@ -1054,7 +1054,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildPreviewSection()
 			[
 				SNew(SButton)
 				.Text(this, &SAIWidgetInspectorPanel::GetRevertPreviewText)
-				.ToolTipText(LOCTEXT("RevertPreviewTooltip", "이 세션에서 적용한 모든 임시 변경을 원래 값으로 되돌린다."))
+				.ToolTipText(LOCTEXT("RevertPreviewTooltip", "Restore every preview made this session to its original value."))
 				.IsEnabled(this, &SAIWidgetInspectorPanel::HasPreviews)
 				.OnClicked(this, &SAIWidgetInspectorPanel::HandleRevertPreviewClicked)
 			]
@@ -1246,7 +1246,7 @@ FReply SAIWidgetInspectorPanel::HandleCommitPreviewClicked()
 
 	if (CommandsToApply.IsEmpty())
 	{
-		ChangePlanStatusText = LOCTEXT("CommitNothing", "에셋에 넘길 미리보기가 없습니다.");
+		ChangePlanStatusText = LOCTEXT("CommitNothing", "There are no previews to write to the asset.");
 		return FReply::Handled();
 	}
 
@@ -1261,7 +1261,7 @@ FReply SAIWidgetInspectorPanel::HandleCommitPreviewClicked()
 	if (Result.AppliedCount == 0)
 	{
 		ChangePlanStatusText = Result.Error.IsEmpty()
-			? LOCTEXT("CommitNothingApplied", "에셋에 적용된 변경이 없습니다.")
+			? LOCTEXT("CommitNothingApplied", "No changes were applied to the asset.")
 			: Result.Error;
 		return FReply::Handled();
 	}
@@ -1272,7 +1272,7 @@ FReply SAIWidgetInspectorPanel::HandleCommitPreviewClicked()
 		// 적용은 됐고 저장만 실패한 상태다. 여기서 "실패"라고만 하면 사용자가
 		// 아무 일도 안 일어난 줄 알고 다시 누른다.
 		ChangePlanStatusText = FText::Format(
-			LOCTEXT("CommitAppliedNotSaved", "에셋에 {0}건 적용했지만 저장하지 못했습니다: {1}"),
+			LOCTEXT("CommitAppliedNotSaved", "Applied {0} change(s) to the asset but could not save: {1}"),
 			FText::AsNumber(Result.AppliedCount),
 			SaveError);
 		return FReply::Handled();
@@ -1283,7 +1283,7 @@ FReply SAIWidgetInspectorPanel::HandleCommitPreviewClicked()
 	RuntimePreview->ForgetAll();
 
 	ChangePlanStatusText = FText::Format(
-		LOCTEXT("CommitSaved", "{0}건을 에셋에 적용하고 저장했습니다."),
+		LOCTEXT("CommitSaved", "Applied {0} change(s) to the asset and saved."),
 		FText::AsNumber(Result.AppliedCount));
 
 	return FReply::Handled();
@@ -1356,7 +1356,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildAskAISection()
 				[
 					SNew(SButton)
 					.Text(LOCTEXT("CopyContext", "Copy Context"))
-					.ToolTipText(LOCTEXT("CopyContextTooltip", "질문 없이 Widget 정보만 클립보드에 복사한다."))
+					.ToolTipText(LOCTEXT("CopyContextTooltip", "Copy just the widget context, without a question."))
 					.IsEnabled(this, &SAIWidgetInspectorPanel::HasSelection)
 					.OnClicked(this, &SAIWidgetInspectorPanel::HandleCopyContextClicked)
 				]
@@ -1388,7 +1388,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildAskAISection()
 				.HeightOverride(56.0f)
 				[
 					SAssignNew(QuestionTextBox, SMultiLineEditableTextBox)
-					.HintText(LOCTEXT("QuestionHint", "예) 왜 이 버튼 클릭이 안 돼?"))
+					.HintText(LOCTEXT("QuestionHint", "e.g. why does this button not respond to clicks?"))
 				]
 			]
 
@@ -1404,7 +1404,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildAskAISection()
 				[
 					SNew(SButton)
 					.Text(this, &SAIWidgetInspectorPanel::GetAskButtonText)
-					.ToolTipText(LOCTEXT("AskAITooltip", "Widget 정보와 질문을 묶어 Provider에게 보낸다."))
+					.ToolTipText(LOCTEXT("AskAITooltip", "Send the widget context and your question to the provider."))
 					.IsEnabled(this, &SAIWidgetInspectorPanel::CanSendRequest)
 					.OnClicked(this, &SAIWidgetInspectorPanel::HandleAskAIClicked)
 				]
@@ -1414,7 +1414,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildAskAISection()
 				[
 					SNew(SButton)
 					.Text(LOCTEXT("RequestChange", "Request Change"))
-					.ToolTipText(LOCTEXT("RequestChangeTooltip", "같은 내용을 보내되, 실행 가능한 JSON 변경안으로 답하라는 지시를 덧붙인다."))
+					.ToolTipText(LOCTEXT("RequestChangeTooltip", "Send the same context, asking for an executable change instead of prose."))
 					.IsEnabled(this, &SAIWidgetInspectorPanel::CanSendRequest)
 					.OnClicked(this, &SAIWidgetInspectorPanel::HandleRequestChangeClicked)
 				]
@@ -1425,7 +1425,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildAskAISection()
 			.Padding(0.0f, 6.0f, 0.0f, 2.0f)
 			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("ResponseLabel", "AI Response — Clipboard Provider를 쓸 때는 AI가 준 답을 여기에 붙여넣으세요."))
+				.Text(LOCTEXT("ResponseLabel", "AI Response - with the Clipboard provider, paste the assistant's reply here."))
 				.ColorAndOpacity(FSlateColor::UseSubduedForeground())
 				.AutoWrapText(true)
 			]
@@ -1447,7 +1447,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildAskAISection()
 			[
 				SNew(SButton)
 				.Text(LOCTEXT("ParseChange", "Parse Change"))
-				.ToolTipText(LOCTEXT("ParseChangeTooltip", "응답에서 변경안을 읽고 검사한다. 실행은 아직 하지 않는다."))
+				.ToolTipText(LOCTEXT("ParseChangeTooltip", "Read and check the change in the reply. Nothing runs yet."))
 				.IsEnabled(this, &SAIWidgetInspectorPanel::CanParseChange)
 				.OnClicked(this, &SAIWidgetInspectorPanel::HandleParseChangeClicked)
 			]
@@ -1593,7 +1593,7 @@ void SAIWidgetInspectorPanel::HandleAIResponse(const FAIWidgetResponse& InRespon
 
 	if (!InResponse.bSuccess)
 	{
-		UE_LOG(LogAIWidgetInspector, Warning, TEXT("AI 요청 실패: %s"), *InResponse.Message.ToString());
+		UE_LOG(LogAIWidgetInspector, Warning, TEXT("AI request failed: %s"), *InResponse.Message.ToString());
 		return;
 	}
 
@@ -1601,7 +1601,7 @@ void SAIWidgetInspectorPanel::HandleAIResponse(const FAIWidgetResponse& InRespon
 	// 설명에 섞인 값을 명령으로 오해해 같은 변경을 한 번 더 적용하게 된다.
 	if (PendingRequestKind == EAIWidgetRequestKind::ToolChangeRequest)
 	{
-		UE_LOG(LogAIWidgetInspector, Log, TEXT("AI가 에디터 Tool로 직접 처리했습니다."));
+		UE_LOG(LogAIWidgetInspector, Log, TEXT("The assistant handled it directly through the editor tools."));
 		return;
 	}
 
@@ -1630,7 +1630,7 @@ void SAIWidgetInspectorPanel::HandleAIResponse(const FAIWidgetResponse& InRespon
 		ChangePlanListView->RequestListRefresh();
 	}
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("변경 요청 응답을 %d건 미리보기로 적용했습니다."), AppliedCount);
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("Applied %d change(s) from the reply as a preview."), AppliedCount);
 }
 
 TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildChangePlanSection()
@@ -1677,7 +1677,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildChangePlanSection()
 			[
 				SNew(SButton)
 				.Text(LOCTEXT("ApplyPreview", "Apply Preview"))
-				.ToolTipText(LOCTEXT("ApplyPreviewTooltip", "검사를 통과한 변경만 살아있는 Widget에 적용한다. 에셋은 바뀌지 않는다."))
+				.ToolTipText(LOCTEXT("ApplyPreviewTooltip", "Apply the changes that passed validation to the live widget. The asset is untouched."))
 				.IsEnabled(this, &SAIWidgetInspectorPanel::CanApplyChange)
 				.OnClicked(this, &SAIWidgetInspectorPanel::HandleApplyChangeClicked)
 			]
@@ -1688,7 +1688,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildChangePlanSection()
 			[
 				SNew(SButton)
 				.Text(LOCTEXT("ApplyToAsset", "Apply to Asset"))
-				.ToolTipText(LOCTEXT("ApplyToAssetTooltip", "Widget Blueprint 원본을 고치고 컴파일한다. Ctrl+Z로 되돌릴 수 있고, 저장은 따로 눌러야 한다."))
+				.ToolTipText(LOCTEXT("ApplyToAssetTooltip", "Edit and recompile the Widget Blueprint. Ctrl+Z undoes it; saving is a separate step."))
 				.IsEnabled(this, &SAIWidgetInspectorPanel::CanApplyToAsset)
 				.OnClicked(this, &SAIWidgetInspectorPanel::HandleApplyToAssetClicked)
 			]
@@ -1719,7 +1719,7 @@ TSharedRef<ITableRow> SAIWidgetInspectorPanel::HandleGenerateChangePlanRow(FChan
 	else
 	{
 		RowText = FText::Format(
-			LOCTEXT("RejectedChange", "{0}   {1}   거부: {2}"),
+			LOCTEXT("RejectedChange", "{0}   {1}   rejected: {2}"),
 			FText::FromName(InEntry->Command.TargetWidgetName),
 			FText::FromString(FAIWidgetCommand::GetOperationName(InEntry->Command.Operation)),
 			InEntry->Validation.Error);
@@ -1800,12 +1800,12 @@ int32 SAIWidgetInspectorPanel::BuildChangePlanFromResponse()
 	FTextBuilder StatusBuilder;
 	if (ChangePlanEntries.IsEmpty() && ParseErrors.IsEmpty())
 	{
-		StatusBuilder.AppendLine(LOCTEXT("NothingParsed", "읽어낼 변경이 없습니다."));
+		StatusBuilder.AppendLine(LOCTEXT("NothingParsed", "There was no change to read."));
 	}
 	else
 	{
 		StatusBuilder.AppendLine(FText::Format(
-			LOCTEXT("ParsedSummary", "{0}건 중 {1}건이 적용 가능합니다."),
+			LOCTEXT("ParsedSummary", "{1} of {0} can be applied."),
 			FText::AsNumber(ChangePlanEntries.Num()),
 			FText::AsNumber(ValidCount)));
 	}
@@ -1822,7 +1822,7 @@ int32 SAIWidgetInspectorPanel::BuildChangePlanFromResponse()
 		ChangePlanListView->RequestListRefresh();
 	}
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("변경 계획: %d건 파싱, %d건 적용 가능, %d건 형식 오류."),
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("Change plan: %d parsed, %d applicable, %d malformed."),
 		ChangePlanEntries.Num(), ValidCount, ParseErrors.Num());
 
 	return ValidCount;
@@ -1878,11 +1878,11 @@ int32 SAIWidgetInspectorPanel::ApplyChangePlanToPreview()
 
 	ChangePlanStatusText = FailedCount > 0
 		? FText::Format(
-			LOCTEXT("AppliedWithFailures", "{0}건 적용, {1}건 실패. Revert Preview로 되돌릴 수 있습니다."),
+			LOCTEXT("AppliedWithFailures", "{0} applied, {1} failed. Revert Preview undoes them."),
 			FText::AsNumber(AppliedCount),
 			FText::AsNumber(FailedCount))
 		: FText::Format(
-			LOCTEXT("Applied", "{0}건 적용했습니다. 에셋은 바뀌지 않았습니다. Revert Preview로 되돌릴 수 있습니다."),
+			LOCTEXT("Applied", "Applied {0}. The asset is unchanged; Revert Preview undoes them."),
 			FText::AsNumber(AppliedCount));
 
 	return AppliedCount;
@@ -1923,19 +1923,19 @@ FReply SAIWidgetInspectorPanel::HandleApplyToAssetClicked()
 	if (Result.AppliedCount == 0)
 	{
 		Status = Result.Error.IsEmpty()
-			? LOCTEXT("AssetNothingApplied", "에셋에 적용된 변경이 없습니다.")
+			? LOCTEXT("AssetNothingApplied", "No changes were applied to the asset.")
 			: Result.Error;
 	}
 	else
 	{
 		Status = FText::Format(
-			LOCTEXT("AssetApplied", "에셋에 {0}건 적용하고 컴파일했습니다. Ctrl+Z로 되돌릴 수 있습니다. 저장하려면 Source의 Save Asset을 누르세요."),
+			LOCTEXT("AssetApplied", "Applied {0} to the asset and recompiled. Ctrl+Z undoes it; press Save Asset under Source to save."),
 			FText::AsNumber(Result.AppliedCount));
 
 		if (Result.FailedCount > 0)
 		{
 			Status = FText::Format(
-				LOCTEXT("AssetAppliedWithFailures", "{0} ({1}건 실패: {2})"),
+				LOCTEXT("AssetAppliedWithFailures", "{0} ({1} failed: {2})"),
 				Status,
 				FText::AsNumber(Result.FailedCount),
 				Result.Error);
@@ -1990,7 +1990,7 @@ FReply SAIWidgetInspectorPanel::HandleSaveAssetClicked()
 	FText Error;
 	if (FAIWidgetPersistentApplier::SaveAsset(Blueprint, Error))
 	{
-		ChangePlanStatusText = LOCTEXT("AssetSaved", "에셋을 저장했습니다.");
+		ChangePlanStatusText = LOCTEXT("AssetSaved", "Asset saved.");
 	}
 	else
 	{

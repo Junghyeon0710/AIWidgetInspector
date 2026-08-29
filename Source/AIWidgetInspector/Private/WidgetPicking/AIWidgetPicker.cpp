@@ -46,7 +46,7 @@ void FAIWidgetPicker::EnterInspectMode()
 
 	if (!FSlateApplication::IsInitialized())
 	{
-		UE_LOG(LogAIWidgetInspector, Warning, TEXT("Slate가 초기화되지 않아 Inspect Mode를 시작할 수 없습니다."));
+		UE_LOG(LogAIWidgetInspector, Warning, TEXT("Slate is not initialised, so Inspect Mode cannot start."));
 		return;
 	}
 
@@ -58,14 +58,14 @@ void FAIWidgetPicker::EnterInspectMode()
 	// 에디터/게임 쪽 처리기보다 먼저 입력을 보기 위해 PreEditor 버킷에 등록한다.
 	if (!FSlateApplication::Get().RegisterInputPreProcessor(InputProcessor, EInputPreProcessorType::PreEditor))
 	{
-		UE_LOG(LogAIWidgetInspector, Warning, TEXT("Input Pre-Processor 등록에 실패했습니다."));
+		UE_LOG(LogAIWidgetInspector, Warning, TEXT("Failed to register the input pre-processor."));
 		return;
 	}
 
 	bIsInspecting = true;
 	HoveredWidgetPath = FWeakWidgetPath();
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("Inspect Mode 시작. Widget을 클릭하면 선택되고, ESC / 우클릭이면 취소됩니다."));
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("Inspect Mode on. Click a widget to select it; Esc or right-click cancels."));
 
 	InspectModeChangedEvent.Broadcast(true);
 }
@@ -85,7 +85,7 @@ void FAIWidgetPicker::ExitInspectMode()
 		FSlateApplication::Get().UnregisterInputPreProcessor(InputProcessor);
 	}
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("Inspect Mode 종료."));
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("Inspect Mode off."));
 
 	InspectModeChangedEvent.Broadcast(false);
 }
@@ -178,7 +178,7 @@ void FAIWidgetPicker::HandlePickAt(const FVector2f& InScreenSpacePosition)
 	const FWidgetPath NewPath = LocateWidgetPathAt(InScreenSpacePosition);
 	if (!NewPath.IsValid())
 	{
-		UE_LOG(LogAIWidgetInspector, Warning, TEXT("커서 아래에서 Hit되는 Widget을 찾지 못했습니다."));
+		UE_LOG(LogAIWidgetInspector, Warning, TEXT("No widget was hit under the cursor."));
 		return;
 	}
 
@@ -191,7 +191,7 @@ void FAIWidgetPicker::HandlePickAt(const FVector2f& InScreenSpacePosition)
 
 	PickedWidgetPath = FWeakWidgetPath(NewPath);
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("Widget 선택됨:\n%s"), *DescribeWidgetPath(NewPath));
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("Widget selected:\n%s"), *DescribeWidgetPath(NewPath));
 
 	// 선택이 끝나면 에디터 입력을 곧바로 돌려준다.
 	ExitInspectMode();

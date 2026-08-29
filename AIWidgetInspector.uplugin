@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
-	"Version": 5,
-	"VersionName": "0.5.0",
+	"Version": 6,
+	"VersionName": "0.6.0",
 	"FriendlyName": "AI Widget Inspector",
 	"Description": "Click any Slate or UMG widget in the Unreal Editor to select it, trace it back to the UWidget, UserWidget, Widget Blueprint or C++ source that created it, and hand that context to an AI assistant.",
 	"Category": "Editor Tools",
@@ -30,11 +30,15 @@
 	"Plugins": [
 		{
 			"Name": "ToolsetRegistry",
-			"Enabled": true
+			"Enabled": true,
+			"Optional": true,
+			"Description": "Needed only to let an AI assistant change widgets directly. Everything else works without it."
 		},
 		{
 			"Name": "ModelContextProtocol",
-			"Enabled": true
+			"Enabled": true,
+			"Optional": true,
+			"Description": "Hosts the MCP server an AI CLI connects to. Without it, changes still work by pasting the assistant's JSON reply."
 		}
 	]
 }

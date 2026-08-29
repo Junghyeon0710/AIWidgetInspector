@@ -83,7 +83,7 @@ namespace AIWidgetMcpToolsPrivate
 
 		TSharedRef<FJsonObject> Operation = MakeShared<FJsonObject>();
 		Operation->SetStringField(TEXT("type"), TEXT("string"));
-		Operation->SetStringField(TEXT("description"), TEXT("바꿀 속성. 여기 있는 것만 실행된다."));
+		Operation->SetStringField(TEXT("description"), TEXT("Which property to change. Only the listed values run."));
 		Operation->SetArrayField(TEXT("enum"), MakeStringEnum({
 			TEXT("SetVisibility"),
 			TEXT("SetEnabled"),
@@ -96,19 +96,19 @@ namespace AIWidgetMcpToolsPrivate
 
 		Properties->SetObjectField(TEXT("target_widget"), MakeProperty(
 			TEXT("string"),
-			TEXT("대상 Widget 이름. list_widget_tree 가 돌려준 이름 중 하나여야 한다.")));
+			TEXT("Name of the widget to change. Must be one returned by list_widget_tree.")));
 
 		// value는 Operation마다 타입이 다르다. JSON Schema로 그걸 표현하면 oneOf가 길어지는데,
 		// 어차피 실제 검사는 ParseChange가 하므로 여기서는 설명으로 알려준다.
 		TSharedRef<FJsonObject> Value = MakeShared<FJsonObject>();
 		Value->SetStringField(TEXT("description"), TEXT(
-			"operation이 정하는 타입. "
-			"SetVisibility=문자열(Visible/Collapsed/Hidden/HitTestInvisible/SelfHitTestInvisible), "
-			"SetEnabled=불리언, "
-			"SetText=문자열, "
-			"SetRenderOpacity=0~1 숫자, "
-			"SetRenderTranslation={\"x\":숫자,\"y\":숫자}, "
-			"SetColorAndOpacity=\"#RRGGBB\" 또는 \"#RRGGBBAA\" 문자열(sRGB)"));
+			"Type is decided by the operation. "
+			"SetVisibility: string, one of Visible / Collapsed / Hidden / HitTestInvisible / SelfHitTestInvisible. "
+			"SetEnabled: boolean. "
+			"SetText: string. "
+			"SetRenderOpacity: number from 0 to 1. "
+			"SetRenderTranslation: object with numeric x and y. "
+			"SetColorAndOpacity: string \"#RRGGBB\" or \"#RRGGBBAA\", read as sRGB."));
 		Properties->SetObjectField(TEXT("value"), Value);
 
 		return Properties;
@@ -141,37 +141,37 @@ TArray<TSharedPtr<FJsonObject>> FAIWidgetMcpTools::BuildToolDefinitions() const
 
 	Tools.Add(MakeTool(
 		ToolGetSelectedWidget,
-		TEXT("에디터에서 지금 선택된 Widget의 정보를 돌려준다. 타입, 상태, 배치, 소속 Blueprint, 만들어진 C++ 위치까지 포함한다. 무엇을 바꿀지 정하기 전에 먼저 부른다."),
+		TEXT("Describes the widget currently selected in the editor: type, state, layout, owning Blueprint, and the C++ location that created it. Call this before deciding what to change."),
 		MakeShared<FJsonObject>(),
 		{}));
 
 	Tools.Add(MakeTool(
 		ToolListWidgetTree,
-		TEXT("선택된 Widget이 속한 UserWidget 안의 Widget 이름과 타입을 모두 돌려준다. target_widget에 넣을 수 있는 이름은 이 목록에 있는 것뿐이다."),
+		TEXT("Lists the name and type of every widget in the UserWidget that owns the selection. Only these names are accepted as target_widget."),
 		MakeShared<FJsonObject>(),
 		{}));
 
 	Tools.Add(MakeTool(
 		ToolPreviewChange,
-		TEXT("화면에 떠 있는 Widget 인스턴스에 변경을 적용한다. 에셋 파일은 바뀌지 않고 revert_preview로 되돌릴 수 있다. 먼저 이걸로 보여준 뒤 사용자가 만족하면 에셋에 쓴다."),
+		TEXT("Applies a change to the live widget on screen. The asset file is untouched and revert_preview restores it. Show the result this way first, then write to the asset if the user is happy."),
 		MakeChangeProperties(),
 		{ TEXT("operation"), TEXT("target_widget"), TEXT("value") }));
 
 	Tools.Add(MakeTool(
 		ToolApplyToAsset,
-		TEXT("Widget Blueprint 에셋 원본에 변경을 쓴다. 되돌리려면 에디터에서 Ctrl+Z를 눌러야 한다. 저장은 하지 않으므로 사용자가 직접 저장해야 최종 반영된다. 사용자가 분명히 요청했을 때만 부른다."),
+		TEXT("Writes a change into the Widget Blueprint asset. Undoing it takes Ctrl+Z in the editor. Does not save, so the user still has to save for it to reach the file. Only call it when the user has clearly asked."),
 		MakeChangeProperties(),
 		{ TEXT("operation"), TEXT("target_widget"), TEXT("value") }));
 
 	Tools.Add(MakeTool(
 		ToolSaveAsset,
-		TEXT("apply_widget_change_to_asset로 바꾼 Widget Blueprint를 디스크에 저장한다. 저장하고 나면 에디터를 닫아도 남는다. 사용자가 저장해 달라고 말했을 때만 부른다."),
+		TEXT("Saves the Widget Blueprint changed by apply_widget_change_to_asset to disk. After this it survives closing the editor. Only call it when the user has asked to save."),
 		MakeShared<FJsonObject>(),
 		{}));
 
 	Tools.Add(MakeTool(
 		ToolRevertPreview,
-		TEXT("preview_widget_change로 적용한 모든 변경을 처음 값으로 되돌린다."),
+		TEXT("Restores every value changed by preview_widget_change to what it was."),
 		MakeShared<FJsonObject>(),
 		{}));
 
@@ -184,9 +184,9 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::Call(const FString& InToolName, const 
 
 	// Widget을 만지는 일은 전부 게임 스레드에서만 해야 한다. HTTP 핸들러가 게임 스레드에서
 	// 돌기 때문에 여기까지 그대로 오지만, 그 전제가 깨지면 조용히 망가지므로 확인해 둔다.
-	if (!ensureMsgf(IsInGameThread(), TEXT("MCP Tool은 게임 스레드에서만 실행되어야 한다.")))
+	if (!ensureMsgf(IsInGameThread(), TEXT("MCP tools must run on the game thread.")))
 	{
-		return FAIWidgetMcpToolResult::Error(TEXT("Tool을 게임 스레드 밖에서 실행할 수 없습니다."));
+		return FAIWidgetMcpToolResult::Error(TEXT("Cannot run a tool off the game thread."));
 	}
 
 	const FAIWidgetMcpToolResult Result = Dispatch(InToolName, InArguments);
@@ -196,11 +196,11 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::Call(const FString& InToolName, const 
 	// 이유를 안 남기면 나중에 왜 두 번 불렸는지 아무도 설명할 수 없다.
 	if (Result.bIsError)
 	{
-		UE_LOG(LogAIWidgetInspector, Log, TEXT("MCP Tool 거부: %s — %s"), *InToolName, *Result.Text);
+		UE_LOG(LogAIWidgetInspector, Log, TEXT("MCP tool rejected: %s - %s"), *InToolName, *Result.Text);
 	}
 	else
 	{
-		UE_LOG(LogAIWidgetInspector, Log, TEXT("MCP Tool 완료: %s"), *InToolName);
+		UE_LOG(LogAIWidgetInspector, Log, TEXT("MCP tool done: %s"), *InToolName);
 	}
 
 	return Result;
@@ -240,20 +240,20 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::Dispatch(const FString& InToolName, co
 		return SaveAsset();
 	}
 
-	return FAIWidgetMcpToolResult::Error(FString::Printf(TEXT("알 수 없는 Tool입니다: %s"), *InToolName));
+	return FAIWidgetMcpToolResult::Error(FString::Printf(TEXT("Unknown tool: %s"), *InToolName));
 }
 
 FAIWidgetMcpToolResult FAIWidgetMcpTools::GetSelectedWidget() const
 {
 	if (!HasSelection())
 	{
-		return FAIWidgetMcpToolResult::Error(TEXT("선택된 Widget이 없습니다. 에디터에서 Inspect Mode로 Widget을 하나 클릭해야 합니다."));
+		return FAIWidgetMcpToolResult::Error(TEXT("No widget is selected. Ask the user to turn on Inspect Mode in the editor and click a widget."));
 	}
 
 	const FAIWidgetInspectionResult Inspection = InspectSelection();
 	if (!Inspection.bIsValid)
 	{
-		return FAIWidgetMcpToolResult::Error(TEXT("선택된 Widget이 이미 파괴되었습니다."));
+		return FAIWidgetMcpToolResult::Error(TEXT("The selected widget no longer exists. It was probably destroyed by a Blueprint recompile; ask the user to select it again."));
 	}
 
 	const FAIWidgetSourceInfo SourceInfo = FAIWidgetSourceResolver::Resolve(Inspection, Selection->GetSelectedWidget());
@@ -266,7 +266,7 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::ListWidgetTree() const
 {
 	if (!HasSelection())
 	{
-		return FAIWidgetMcpToolResult::Error(TEXT("선택된 Widget이 없습니다."));
+		return FAIWidgetMcpToolResult::Error(TEXT("No widget is selected."));
 	}
 
 	const FAIWidgetInspectionResult Inspection = InspectSelection();
@@ -274,20 +274,20 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::ListWidgetTree() const
 	if (!OwnerUserWidget)
 	{
 		return FAIWidgetMcpToolResult::Error(TEXT(
-			"이 Widget은 UMG UserWidget에 속해 있지 않습니다. C++ Slate Widget이라 이름으로 다룰 수 있는 트리가 없습니다."));
+			"This widget does not belong to a UMG UserWidget. It is a C++ Slate widget, so there is no named widget tree to list."));
 	}
 
 	UWidgetTree* WidgetTree = OwnerUserWidget->WidgetTree;
 	if (!WidgetTree)
 	{
-		return FAIWidgetMcpToolResult::Error(TEXT("UserWidget에 WidgetTree가 없습니다."));
+		return FAIWidgetMcpToolResult::Error(TEXT("The UserWidget has no WidgetTree."));
 	}
 
 	const FName SelectedName = Inspection.WidgetName;
 
 	TStringBuilder<2048> Builder;
 	Builder.Appendf(TEXT("UserWidget: %s\n"), *OwnerUserWidget->GetName());
-	Builder.Append(TEXT("\n이름 / 타입 / 지금 Visibility\n"));
+	Builder.Append(TEXT("\nname / class / current visibility\n"));
 
 	int32 Count = 0;
 	WidgetTree->ForEachWidget([&Builder, &Count, SelectedName](UWidget* Widget)
@@ -302,12 +302,12 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::ListWidgetTree() const
 			*Widget->GetName(),
 			*Widget->GetClass()->GetName(),
 			*UEnum::GetValueAsString(Widget->GetVisibility()),
-			Widget->GetFName() == SelectedName ? TEXT("   <-- 선택됨") : TEXT(""));
+			Widget->GetFName() == SelectedName ? TEXT("   <-- selected") : TEXT(""));
 	});
 
 	if (Count == 0)
 	{
-		return FAIWidgetMcpToolResult::Error(TEXT("WidgetTree가 비어 있습니다."));
+		return FAIWidgetMcpToolResult::Error(TEXT("The WidgetTree is empty."));
 	}
 
 	return FAIWidgetMcpToolResult::Ok(Builder.ToString());
@@ -317,18 +317,18 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::ApplyChange(const TSharedPtr<FJsonObje
 {
 	if (!InArguments.IsValid())
 	{
-		return FAIWidgetMcpToolResult::Error(TEXT("인자가 없습니다."));
+		return FAIWidgetMcpToolResult::Error(TEXT("No arguments were given."));
 	}
 
 	if (!HasSelection())
 	{
-		return FAIWidgetMcpToolResult::Error(TEXT("선택된 Widget이 없습니다."));
+		return FAIWidgetMcpToolResult::Error(TEXT("No widget is selected."));
 	}
 
 	const FAIWidgetInspectionResult Inspection = InspectSelection();
 	if (!Inspection.bIsValid)
 	{
-		return FAIWidgetMcpToolResult::Error(TEXT("선택된 Widget이 이미 파괴되었습니다."));
+		return FAIWidgetMcpToolResult::Error(TEXT("The selected widget no longer exists. It was probably destroyed by a Blueprint recompile; ask the user to select it again."));
 	}
 
 	// 응답 본문으로 오는 JSON과 똑같은 검사를 거친다. 경로가 둘이어도 관문은 하나다.
@@ -350,7 +350,7 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::ApplyChange(const TSharedPtr<FJsonObje
 		if (!FAIWidgetPersistentApplier::CanApply(Inspection))
 		{
 			return FAIWidgetMcpToolResult::Error(TEXT(
-				"이 Widget은 Widget Blueprint에서 온 것이 아니라 에셋에 쓸 수 없습니다. preview_widget_change는 쓸 수 있습니다."));
+				"This widget did not come from a Widget Blueprint, so there is no asset to write to. preview_widget_change still works."));
 		}
 
 		const FAIWidgetPersistentResult Result = FAIWidgetPersistentApplier::Apply({ Command }, Inspection);
@@ -364,13 +364,13 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::ApplyChange(const TSharedPtr<FJsonObje
 		if (Result.AppliedCount == 0)
 		{
 			return FAIWidgetMcpToolResult::Error(FString::Printf(
-				TEXT("에셋에 쓰지 못했습니다: %s"), *Result.Error.ToString()));
+				TEXT("Could not write to the asset: %s"), *Result.Error.ToString()));
 		}
 
 		return FAIWidgetMcpToolResult::Ok(FString::Printf(
-			TEXT("에셋에 적용했습니다: %s\n%s\n\n아직 저장하지 않았습니다. 사용자가 에디터에서 저장해야 파일에 남습니다. 되돌리려면 에디터에서 Ctrl+Z."),
+			TEXT("Applied to the asset: %s\n%s\n\nNot saved yet. The user has to save in the editor for it to reach the file, or press Ctrl+Z there to undo."),
 			*Validation.PlanLine,
-			Result.bCompiled ? TEXT("Blueprint를 다시 컴파일했습니다.") : TEXT("")));
+			Result.bCompiled ? TEXT("The Blueprint was recompiled.") : TEXT("")));
 	}
 
 	UWidget* TargetWidget = Validation.TargetWidget.Get();
@@ -381,7 +381,7 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::ApplyChange(const TSharedPtr<FJsonObje
 	}
 
 	return FAIWidgetMcpToolResult::Ok(FString::Printf(
-		TEXT("미리보기로 적용했습니다: %s\n\n에셋은 바뀌지 않았습니다. revert_preview로 되돌릴 수 있습니다."),
+		TEXT("Applied as a preview: %s\n\nThe asset is unchanged. revert_preview restores it."),
 		*Validation.PlanLine));
 }
 
@@ -389,7 +389,7 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::SaveAsset()
 {
 	if (!HasSelection())
 	{
-		return FAIWidgetMcpToolResult::Error(TEXT("선택된 Widget이 없습니다."));
+		return FAIWidgetMcpToolResult::Error(TEXT("No widget is selected."));
 	}
 
 	// 선택을 먼저 본다. 하지만 방금 에셋에 적용했다면 그 컴파일이 선택을 죽였을 수 있으므로,
@@ -405,26 +405,26 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::SaveAsset()
 	if (!Blueprint)
 	{
 		return FAIWidgetMcpToolResult::Error(TEXT(
-			"저장할 Widget Blueprint를 찾지 못했습니다. 이 세션에서 에셋에 적용한 적이 없고, "
-			"지금 선택된 것도 Widget Blueprint에서 온 Widget이 아닙니다."));
+			"Could not find a Widget Blueprint to save. Nothing has been applied to an asset this session, "
+			"and the current selection did not come from one either."));
 	}
 
 	// 저장할 게 없는데 저장했다고 답하면, 미리보기만 해 놓고 끝난 걸 사용자가 눈치채지 못한다.
 	if (!FAIWidgetPersistentApplier::IsAssetDirty(Blueprint))
 	{
 		return FAIWidgetMcpToolResult::Error(TEXT(
-			"바뀐 내용이 없어 저장하지 않았습니다. 미리보기만 했다면 에셋에는 아직 아무것도 쓰이지 않은 상태입니다. "
-			"apply_widget_change_to_asset을 먼저 불러야 합니다."));
+			"Nothing to save. A preview leaves the asset untouched, "
+			"so call apply_widget_change_to_asset first."));
 	}
 
 	FText SaveError;
 	if (!FAIWidgetPersistentApplier::SaveAsset(Blueprint, SaveError))
 	{
-		return FAIWidgetMcpToolResult::Error(FString::Printf(TEXT("저장하지 못했습니다: %s"), *SaveError.ToString()));
+		return FAIWidgetMcpToolResult::Error(FString::Printf(TEXT("Could not save: %s"), *SaveError.ToString()));
 	}
 
 	return FAIWidgetMcpToolResult::Ok(FString::Printf(
-		TEXT("%s 를 저장했습니다. 이제 에디터를 닫아도 남습니다."), *Blueprint->GetName()));
+		TEXT("Saved %s. It now survives closing the editor."), *Blueprint->GetName()));
 }
 
 FAIWidgetMcpToolResult FAIWidgetMcpTools::RevertPreview()
@@ -432,12 +432,12 @@ FAIWidgetMcpToolResult FAIWidgetMcpTools::RevertPreview()
 	const int32 Count = RuntimePreview->Num();
 	if (Count == 0)
 	{
-		return FAIWidgetMcpToolResult::Ok(TEXT("되돌릴 미리보기가 없습니다."));
+		return FAIWidgetMcpToolResult::Ok(TEXT("There are no previews to revert."));
 	}
 
 	RuntimePreview->RevertAll();
 
-	return FAIWidgetMcpToolResult::Ok(FString::Printf(TEXT("%d건을 처음 값으로 되돌렸습니다."), Count));
+	return FAIWidgetMcpToolResult::Ok(FString::Printf(TEXT("Restored %d value(s) to what they were."), Count));
 }
 
 #undef LOCTEXT_NAMESPACE

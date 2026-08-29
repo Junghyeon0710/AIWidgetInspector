@@ -166,7 +166,7 @@ bool FAIWidgetCommand::ApplyTo(UWidget* InWidget, FText& OutError) const
 {
 	if (!InWidget)
 	{
-		OutError = LOCTEXT("NoWidget", "적용할 Widget이 없습니다.");
+		OutError = LOCTEXT("NoWidget", "There is no widget to apply to.");
 		return false;
 	}
 
@@ -212,7 +212,7 @@ bool FAIWidgetCommand::ApplyTo(UWidget* InWidget, FText& OutError) const
 		}
 
 		OutError = FText::Format(
-			LOCTEXT("NoColorProperty", "{0}({1})에는 ColorAndOpacity가 없습니다."),
+			LOCTEXT("NoColorProperty", "{0} ({1}) has no ColorAndOpacity."),
 			FText::FromString(InWidget->GetName()),
 			FText::FromString(InWidget->GetClass()->GetName()));
 		return false;
@@ -225,13 +225,13 @@ bool FAIWidgetCommand::ApplyTo(UWidget* InWidget, FText& OutError) const
 		}
 
 		OutError = FText::Format(
-			LOCTEXT("NotATextBlock", "{0}은(는) TextBlock이 아니라 SetText를 적용할 수 없습니다."),
+			LOCTEXT("NotATextBlock", "{0} is not a TextBlock, so SetText does not apply."),
 			FText::FromString(InWidget->GetName()));
 		return false;
 
 	default:
 		OutError = FText::Format(
-			LOCTEXT("UnsupportedOperation", "지원하지 않는 Operation입니다: {0}"),
+			LOCTEXT("UnsupportedOperation", "Unsupported operation: {0}"),
 			FText::FromString(GetOperationName(Operation)));
 		return false;
 	}

@@ -49,7 +49,7 @@ FText FAICliProvider::GetDescription() const
 	}
 
 	return FText::Format(
-		LOCTEXT("DescriptionMissing", "{0}  —  '{1}' 을(를) PATH에서 찾지 못했습니다."),
+		LOCTEXT("DescriptionMissing", "{0}  -  '{1}' was not found on PATH."),
 		Config.Description,
 		FText::FromString(Config.Executable));
 }
@@ -123,7 +123,7 @@ FString FAICliProvider::WriteMcpConfigFile(const FString& InServerName)
 
 	if (!FFileHelper::SaveStringToFile(Contents, *ConfigPath))
 	{
-		UE_LOG(LogAIWidgetInspector, Warning, TEXT("MCP 설정 파일을 쓰지 못했습니다: %s"), *ConfigPath);
+		UE_LOG(LogAIWidgetInspector, Warning, TEXT("Could not write the MCP config file: %s"), *ConfigPath);
 		return FString();
 	}
 
@@ -156,22 +156,22 @@ FText FAICliProvider::GetUnavailableReason() const
 		if (!Config.InstallCommand.IsEmpty())
 		{
 			return FText::Format(
-				LOCTEXT("MissingCliWithHint", "{0} 이(가) 설치돼 있지 않습니다.  터미널에서  {1}  을(를) 실행한 뒤 에디터를 다시 시작하세요."),
+				LOCTEXT("MissingCliWithHint", "{0} is not installed.  Run  {1}  in a terminal, then restart the editor."),
 				FText::FromString(Config.Executable),
 				FText::FromString(Config.InstallCommand));
 		}
 
 		return FText::Format(
-			LOCTEXT("MissingCli", "{0} 을(를) PATH에서 찾지 못했습니다. 설치한 뒤 에디터를 다시 시작하세요."),
+			LOCTEXT("MissingCli", "{0} was not found on PATH. Install it, then restart the editor."),
 			FText::FromString(Config.Executable));
 	}
 
 	if (Config.bUseUnrealMcp && !IsEditorMcpRunning())
 	{
 		return LOCTEXT("McpOff",
-			"에디터의 MCP 서버가 꺼져 있어 AI가 Widget을 직접 고칠 수 없습니다.  "
-			"Edit > Project Settings > Plugins > Model Context Protocol 에서 Auto Start Server를 켜고 에디터를 다시 시작하세요.  "
-			"그때까지는 'Claude Code' Provider로 바꾸면 응답 JSON을 받아 적용하는 방식으로 쓸 수 있습니다.");
+			"The editor's MCP server is off, so the assistant cannot change widgets directly.  "
+			"Turn on Auto Start Server under Edit > Project Settings > Plugins > Model Context Protocol, then restart the editor.  "
+			"Until then, switch to the 'Claude Code' provider to keep working by applying the assistant's JSON reply.");
 	}
 
 	return FText::GetEmpty();
@@ -193,7 +193,7 @@ bool FAICliProvider::RunProcess(
 	void* StdOutWrite = nullptr;
 	if (!FPlatformProcess::CreatePipe(StdOutRead, StdOutWrite))
 	{
-		OutError = LOCTEXT("NoStdOutPipe", "출력 파이프를 만들지 못했습니다.");
+		OutError = LOCTEXT("NoStdOutPipe", "Could not create the output pipe.");
 		return false;
 	}
 
@@ -203,7 +203,7 @@ bool FAICliProvider::RunProcess(
 	if (!FPlatformProcess::CreatePipe(StdInRead, StdInWrite, /*bWritePipeLocal=*/true))
 	{
 		FPlatformProcess::ClosePipe(StdOutRead, StdOutWrite);
-		OutError = LOCTEXT("NoStdInPipe", "입력 파이프를 만들지 못했습니다.");
+		OutError = LOCTEXT("NoStdInPipe", "Could not create the input pipe.");
 		return false;
 	}
 
@@ -233,7 +233,7 @@ bool FAICliProvider::RunProcess(
 		FPlatformProcess::ClosePipe(StdOutRead, StdOutWrite);
 		FPlatformProcess::ClosePipe(StdInRead, StdInWrite);
 		OutError = FText::Format(
-			LOCTEXT("LaunchFailed", "'{0}' 을(를) 실행하지 못했습니다."),
+			LOCTEXT("LaunchFailed", "Could not launch '{0}'."),
 			FText::FromString(InExecutablePath));
 		return false;
 	}
@@ -272,7 +272,7 @@ bool FAICliProvider::RunProcess(
 	if (bTimedOut)
 	{
 		OutError = FText::Format(
-			LOCTEXT("TimedOut", "{0}초 안에 응답이 없어 중단했습니다."),
+			LOCTEXT("TimedOut", "Gave up after {0} seconds with no reply."),
 			FText::AsNumber(static_cast<int32>(InTimeoutSeconds)));
 		return false;
 	}
@@ -286,7 +286,7 @@ void FAICliProvider::SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetR
 	if (!FindExecutable(Config.Executable, ExecutablePath))
 	{
 		InOnComplete.ExecuteIfBound(FAIWidgetResponse::MakeFailure(FText::Format(
-			LOCTEXT("NotInstalled", "'{0}' 을(를) PATH에서 찾지 못했습니다. 설치하고 에디터를 다시 시작하세요."),
+			LOCTEXT("NotInstalled", "'{0}' was not found on PATH. Install it and restart the editor."),
 			FText::FromString(Config.Executable))));
 		return;
 	}
@@ -303,7 +303,7 @@ void FAICliProvider::SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetR
 		{
 			InOnComplete.ExecuteIfBound(FAIWidgetResponse::MakeFailure(LOCTEXT(
 				"McpNotRunning",
-				"에디터의 MCP 서버가 꺼져 있습니다. Project Settings > Model Context Protocol 에서 Auto Start Server를 켜고 에디터를 다시 시작하세요.")));
+				"The editor's MCP server is off. Turn on Auto Start Server under Project Settings > Model Context Protocol and restart the editor.")));
 			return;
 		}
 
@@ -311,7 +311,7 @@ void FAICliProvider::SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetR
 		if (ConfigPath.IsEmpty())
 		{
 			InOnComplete.ExecuteIfBound(FAIWidgetResponse::MakeFailure(LOCTEXT(
-				"McpConfigFailed", "MCP 설정 파일을 만들지 못했습니다.")));
+				"McpConfigFailed", "Could not create the MCP config file.")));
 			return;
 		}
 
@@ -331,7 +331,7 @@ void FAICliProvider::SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetR
 	const FString Arguments = FString::Join(ArgumentList, TEXT(" "));
 	const FString ProviderName = Config.DisplayName.ToString();
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("%s 실행: %s %s (프롬프트 %d자)"),
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("%s launching: %s %s (prompt %d chars)"),
 		*ProviderName, *ExecutablePath, *Arguments, Prompt.Len());
 
 	// 여기서 기다리면 에디터가 멈춘다. 프로세스는 백그라운드에서 돌리고 결과만 게임 스레드로 되돌린다.
@@ -348,23 +348,23 @@ void FAICliProvider::SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetR
 				{
 					if (!bRan)
 					{
-						UE_LOG(LogAIWidgetInspector, Warning, TEXT("%s 실행 실패: %s"), *ProviderName, *Error.ToString());
+						UE_LOG(LogAIWidgetInspector, Warning, TEXT("%s failed to launch: %s"), *ProviderName, *Error.ToString());
 						InOnComplete.ExecuteIfBound(FAIWidgetResponse::MakeFailure(Error));
 						return;
 					}
 
 					if (ReturnCode != 0)
 					{
-						UE_LOG(LogAIWidgetInspector, Warning, TEXT("%s 종료 코드 %d"), *ProviderName, ReturnCode);
+						UE_LOG(LogAIWidgetInspector, Warning, TEXT("%s exited with code %d"), *ProviderName, ReturnCode);
 						InOnComplete.ExecuteIfBound(FAIWidgetResponse::MakeFailure(FText::Format(
-							LOCTEXT("NonZeroExit", "{0}이(가) 종료 코드 {1}로 끝났습니다.\n\n{2}"),
+							LOCTEXT("NonZeroExit", "{0} exited with code {1}.\n\n{2}"),
 							FText::FromString(ProviderName),
 							FText::AsNumber(ReturnCode),
 							FText::FromString(StdOut))));
 						return;
 					}
 
-					UE_LOG(LogAIWidgetInspector, Log, TEXT("%s 응답 %d자."), *ProviderName, StdOut.Len());
+					UE_LOG(LogAIWidgetInspector, Log, TEXT("%s replied with %d chars."), *ProviderName, StdOut.Len());
 					InOnComplete.ExecuteIfBound(FAIWidgetResponse::MakeSuccess(FText::FromString(StdOut), StdOut));
 				});
 		});

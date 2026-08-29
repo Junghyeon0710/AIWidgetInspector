@@ -77,7 +77,7 @@ void FAIWidgetInspectorModule::StartupModule()
 		FAICliProvider::FConfig ClaudeConfig;
 		ClaudeConfig.Name = TEXT("ClaudeCli");
 		ClaudeConfig.DisplayName = LOCTEXT("ClaudeCli", "Claude Code");
-		ClaudeConfig.Description = LOCTEXT("ClaudeCliDesc", "claude CLI에 프롬프트를 넘기고 답을 받는다.");
+		ClaudeConfig.Description = LOCTEXT("ClaudeCliDesc", "Pipes the prompt to the claude CLI and shows the reply.");
 		ClaudeConfig.Executable = TEXT("claude");
 		ClaudeConfig.InstallCommand = TEXT("npm install -g @anthropic-ai/claude-code");
 		// -p 는 대화형 세션 대신 답만 찍고 끝내라는 뜻이다.
@@ -106,7 +106,7 @@ void FAIWidgetInspectorModule::StartupModule()
 		FAICliProvider::FConfig ClaudeMcpConfig;
 		ClaudeMcpConfig.Name = TEXT("ClaudeCliMcp");
 		ClaudeMcpConfig.DisplayName = LOCTEXT("ClaudeCliMcp", "Claude Code (Unreal MCP)");
-		ClaudeMcpConfig.Description = LOCTEXT("ClaudeCliMcpDesc", "claude CLI가 에디터 MCP에 붙어 Widget을 직접 고친다.");
+		ClaudeMcpConfig.Description = LOCTEXT("ClaudeCliMcpDesc", "The claude CLI connects to the editor over MCP and changes widgets itself.");
 		ClaudeMcpConfig.Executable = TEXT("claude");
 		ClaudeMcpConfig.InstallCommand = TEXT("npm install -g @anthropic-ai/claude-code");
 		ClaudeMcpConfig.Arguments = { TEXT("-p") };
@@ -118,7 +118,7 @@ void FAIWidgetInspectorModule::StartupModule()
 		FAICliProvider::FConfig CodexConfig;
 		CodexConfig.Name = TEXT("CodexCli");
 		CodexConfig.DisplayName = LOCTEXT("CodexCli", "Codex");
-		CodexConfig.Description = LOCTEXT("CodexCliDesc", "codex CLI에 프롬프트를 넘기고 답을 받는다.");
+		CodexConfig.Description = LOCTEXT("CodexCliDesc", "Pipes the prompt to the codex CLI and shows the reply.");
 		CodexConfig.Executable = TEXT("codex");
 		CodexConfig.InstallCommand = TEXT("npm install -g @openai/codex");
 		// "-" 는 프롬프트를 stdin에서 읽으라는 뜻이다.
@@ -153,7 +153,7 @@ void FAIWidgetInspectorModule::StartupModule()
 			AIWidgetInspector::InspectorTabName,
 			FOnSpawnTab::CreateRaw(this, &FAIWidgetInspectorModule::HandleSpawnInspectorTab))
 		.SetDisplayName(LOCTEXT("InspectorTabTitle", "AI Widget Inspector"))
-		.SetTooltipText(LOCTEXT("InspectorTabTooltip", "선택된 Slate/UMG Widget의 정보와 경로를 본다."))
+		.SetTooltipText(LOCTEXT("InspectorTabTooltip", "Inspect the selected Slate or UMG widget and where it came from."))
 		.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), TEXT("Icons.Visibility")))
 		.SetGroup(WorkspaceMenu::GetMenuStructure().GetToolsCategory());
 
@@ -164,7 +164,7 @@ void FAIWidgetInspectorModule::StartupModule()
 void FAIWidgetInspectorModule::HandleAllModuleLoadingPhasesComplete()
 {
 	UToolsetRegistry::RegisterToolsetClass(UAIWidgetInspectorToolset::StaticClass());
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("Widget Toolset을 MCP에 등록했습니다."));
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("Registered the widget toolset with MCP."));
 }
 
 void FAIWidgetInspectorModule::HandlePreExit()
@@ -271,7 +271,7 @@ void FAIWidgetInspectorModule::HandleWidgetPicked(const FWidgetPath& InPickedPat
 
 	WidgetSelection->SetFromPath(InPickedPath);
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("선택된 leaf Widget: %s"),
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("Selected leaf widget: %s"),
 		*FAIWidgetPicker::DescribeWidget(InPickedPath.GetLastWidget()));
 
 	FGlobalTabmanager::Get()->TryInvokeTab(AIWidgetInspector::InspectorTabName);

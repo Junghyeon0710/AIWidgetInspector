@@ -51,7 +51,7 @@ FAIWidgetPersistentResult FAIWidgetPersistentApplier::Apply(const TArray<FAIWidg
 	UBaseWidgetBlueprint* Blueprint = GetWidgetBlueprint(InInspection);
 	if (!Blueprint || !Blueprint->WidgetTree)
 	{
-		Result.Error = LOCTEXT("NoBlueprint", "이 Widget에는 원본 Widget Blueprint가 없습니다. C++ Slate Widget은 에셋 변경 대상이 아닙니다.");
+		Result.Error = LOCTEXT("NoBlueprint", "This widget has no source Widget Blueprint. C++ Slate widgets cannot be changed as assets.");
 		return Result;
 	}
 
@@ -59,7 +59,7 @@ FAIWidgetPersistentResult FAIWidgetPersistentApplier::Apply(const TArray<FAIWidg
 
 	{
 		// 전부 한 트랜잭션에 넣는다. Ctrl+Z 한 번에 이번 Apply 전체가 되돌아가야 한다.
-		FScopedTransaction Transaction(LOCTEXT("ApplyToAssetTransaction", "AI Widget Inspector: 에셋에 변경 적용"));
+		FScopedTransaction Transaction(LOCTEXT("ApplyToAssetTransaction", "AI Widget Inspector: apply change to asset"));
 
 		for (const FAIWidgetCommand& Command : InCommands)
 		{
@@ -68,7 +68,7 @@ FAIWidgetPersistentResult FAIWidgetPersistentApplier::Apply(const TArray<FAIWidg
 			{
 				++Result.FailedCount;
 				Result.Error = FText::Format(
-					LOCTEXT("TemplateNotFound", "'{0}'을(를) Widget Blueprint 안에서 찾지 못했습니다."),
+					LOCTEXT("TemplateNotFound", "'{0}' was not found inside the Widget Blueprint."),
 					FText::FromName(Command.TargetWidgetName));
 				continue;
 			}
@@ -77,7 +77,7 @@ FAIWidgetPersistentResult FAIWidgetPersistentApplier::Apply(const TArray<FAIWidg
 			{
 				++Result.FailedCount;
 				Result.Error = FText::Format(
-					LOCTEXT("CannotApplyToTemplate", "{0}에는 {1}을(를) 적용할 수 없습니다."),
+					LOCTEXT("CannotApplyToTemplate", "{1} cannot be applied to {0}."),
 					FText::FromString(TemplateWidget->GetName()),
 					FText::FromString(FAIWidgetCommand::GetOperationName(Command.Operation)));
 				continue;
@@ -99,7 +99,7 @@ FAIWidgetPersistentResult FAIWidgetPersistentApplier::Apply(const TArray<FAIWidg
 
 			++Result.AppliedCount;
 
-			UE_LOG(LogAIWidgetInspector, Log, TEXT("에셋 변경 적용: %s.%s (%s)"),
+			UE_LOG(LogAIWidgetInspector, Log, TEXT("Applied to asset: %s.%s (%s)"),
 				*TemplateWidget->GetName(), *Command.Describe(), *Blueprint->GetName());
 		}
 
@@ -118,7 +118,7 @@ FAIWidgetPersistentResult FAIWidgetPersistentApplier::Apply(const TArray<FAIWidg
 	FKismetEditorUtilities::CompileBlueprint(Blueprint);
 	Result.bCompiled = true;
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("%s 컴파일 완료. %d건 적용, %d건 실패. 저장은 아직 하지 않았습니다."),
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("%s compiled. %d applied, %d rejected. Not saved yet."),
 		*Blueprint->GetName(), Result.AppliedCount, Result.FailedCount);
 
 	return Result;
@@ -146,7 +146,7 @@ bool FAIWidgetPersistentApplier::SaveAsset(UBaseWidgetBlueprint* InBlueprint, FT
 	UPackage* Package = Blueprint ? Blueprint->GetPackage() : nullptr;
 	if (!Package)
 	{
-		OutError = LOCTEXT("NoPackage", "저장할 에셋이 없습니다.");
+		OutError = LOCTEXT("NoPackage", "There is no asset to save.");
 		return false;
 	}
 
@@ -162,11 +162,11 @@ bool FAIWidgetPersistentApplier::SaveAsset(UBaseWidgetBlueprint* InBlueprint, FT
 
 	if (ReturnCode != FEditorFileUtils::EPromptReturnCode::PR_Success)
 	{
-		OutError = LOCTEXT("SaveFailed", "에셋을 저장하지 못했습니다. 출력 로그를 확인하세요.");
+		OutError = LOCTEXT("SaveFailed", "Could not save the asset. Check the output log.");
 		return false;
 	}
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("%s 저장 완료."), *Blueprint->GetName());
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("Saved %s."), *Blueprint->GetName());
 	return true;
 }
 

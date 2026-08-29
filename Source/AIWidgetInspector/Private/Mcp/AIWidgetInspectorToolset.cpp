@@ -40,14 +40,14 @@ namespace AIWidgetInspectorToolsetPrivate
 		const TSharedPtr<FAIWidgetMcpTools> Tools = MakeTools();
 		if (!Tools.IsValid())
 		{
-			return TEXT("AI Widget Inspector 플러그인이 아직 준비되지 않았습니다.");
+			return TEXT("The AI Widget Inspector plugin is not ready yet.");
 		}
 
 		const FAIWidgetMcpToolResult Result = Tools->Call(InToolName, InArguments);
 
 		// 실패도 문자열로 돌려준다. 예외로 끊으면 모델은 이유를 못 보고 같은 실수를 반복한다.
 		return Result.bIsError
-			? FString::Printf(TEXT("실패: %s"), *Result.Text)
+			? FString::Printf(TEXT("Failed: %s"), *Result.Text)
 			: Result.Text;
 	}
 
@@ -82,7 +82,7 @@ namespace AIWidgetInspectorToolsetPrivate
 		if (!Value.IsValid())
 		{
 			return FString::Printf(
-				TEXT("실패: ValueJson을 읽지 못했습니다. JSON 값이어야 합니다. 문자열이면 따옴표를 포함해야 합니다. 받은 값: %s"),
+				TEXT("Failed: could not read ValueJson. It must be a JSON value, and strings need their quotes. Got: %s"),
 				*InValueJson);
 		}
 

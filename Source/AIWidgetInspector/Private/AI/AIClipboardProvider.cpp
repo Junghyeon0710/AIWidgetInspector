@@ -17,7 +17,7 @@ FText FAIClipboardProvider::GetDisplayName() const
 
 FText FAIClipboardProvider::GetDescription() const
 {
-	return LOCTEXT("Description", "프롬프트를 클립보드에 복사한다. Claude나 Codex 창에 그대로 붙여넣으면 된다.");
+	return LOCTEXT("Description", "Copies the prompt to the clipboard to paste into any assistant.");
 }
 
 void FAIClipboardProvider::SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetResponse InOnComplete)
@@ -27,17 +27,17 @@ void FAIClipboardProvider::SendRequest(const FAIWidgetRequest& InRequest, FOnAIW
 	if (Prompt.IsEmpty())
 	{
 		InOnComplete.ExecuteIfBound(FAIWidgetResponse::MakeFailure(
-			LOCTEXT("EmptyPrompt", "보낼 내용이 없습니다.")));
+			LOCTEXT("EmptyPrompt", "There is nothing to send.")));
 		return;
 	}
 
 	FPlatformApplicationMisc::ClipboardCopy(*Prompt);
 
-	UE_LOG(LogAIWidgetInspector, Log, TEXT("프롬프트 %d자를 클립보드에 복사했습니다."), Prompt.Len());
+	UE_LOG(LogAIWidgetInspector, Log, TEXT("Copied %d chars to the clipboard."), Prompt.Len());
 
 	InOnComplete.ExecuteIfBound(FAIWidgetResponse::MakeSuccess(
 		FText::Format(
-			LOCTEXT("Copied", "프롬프트 {0}자를 클립보드에 복사했습니다. Claude 또는 Codex에 붙여넣으세요.\n\n----\n{1}"),
+			LOCTEXT("Copied", "Copied {0} chars to the clipboard. Paste it into your assistant.\n\n----\n{1}"),
 			FText::AsNumber(Prompt.Len()),
 			FText::FromString(Prompt)),
 		Prompt));

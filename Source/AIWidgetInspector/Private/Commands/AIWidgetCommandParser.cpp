@@ -23,29 +23,30 @@ FString FAIWidgetCommandParser::GetSchemaInstructions()
 {
 	return TEXT(
 		"[Response Format]\n"
-		"변경안을 아래 JSON으로 돌려줘. 설명은 JSON 밖에 써도 되지만 JSON 블록은 하나만 있어야 한다.\n"
+		"Answer with the JSON below. Prose outside the JSON is fine, but there must be exactly one JSON block.\n"
 		"\n"
 		"{\n"
 		"  \"changes\": [\n"
 		"    { \"operation\": \"SetVisibility\",        \"target_widget\": \"Btn_Upgrade\", \"value\": \"Collapsed\" },\n"
 		"    { \"operation\": \"SetEnabled\",           \"target_widget\": \"Btn_Upgrade\", \"value\": true },\n"
-		"    { \"operation\": \"SetText\",              \"target_widget\": \"Txt_Label\",   \"value\": \"초월\" },\n"
+		"    { \"operation\": \"SetText\",              \"target_widget\": \"Txt_Label\",   \"value\": \"Upgrade\" },\n"
 		"    { \"operation\": \"SetRenderOpacity\",     \"target_widget\": \"Btn_Upgrade\", \"value\": 0.5 },\n"
 		"    { \"operation\": \"SetRenderTranslation\", \"target_widget\": \"Btn_Upgrade\", \"value\": { \"x\": 30, \"y\": 0 } },\n"
 		"    { \"operation\": \"SetColorAndOpacity\",   \"target_widget\": \"Txt_Label\",   \"value\": \"#4FC3F7\" }\n"
 		"  ]\n"
 		"}\n"
 		"\n"
-		"규칙:\n"
-		"- operation은 위 6개만 허용된다. 그 외는 실행되지 않는다.\n"
-		"- target_widget은 위 Widget Path에 나온 UMG 이름 중 하나여야 한다.\n"
-		"- value 타입은 operation이 정한다.\n"
-		"  Visibility = Visible / Collapsed / Hidden / HitTestInvisible / SelfHitTestInvisible 중 하나(문자열)\n"
-		"  Enabled = 불리언, Text = 문자열, RenderOpacity = 0~1 숫자, RenderTranslation = {x, y} 숫자 오브젝트\n"
-		"  ColorAndOpacity = \"#RRGGBB\" 또는 \"#RRGGBBAA\" 문자열. sRGB로 해석한다.\n"
-		"  ColorAndOpacity는 TextBlock / Image / Button / UserWidget에만 적용된다. 그 외 타입에는 거부된다.\n"
-		"- 크기/위치를 Slot으로 바꿔야 하는 요청은 아직 지원하지 않는다. 그런 경우 changes를 비우고 이유를 설명해라.\n");
+		"Rules:\n"
+		"- Only the six operations above are allowed. Anything else is not executed.\n"
+		"- target_widget must be one of the UMG names shown in the Widget Path above.\n"
+		"- The operation decides the type of value.\n"
+		"  Visibility: one of Visible / Collapsed / Hidden / HitTestInvisible / SelfHitTestInvisible, as a string.\n"
+		"  Enabled: boolean. Text: string. RenderOpacity: number 0 to 1. RenderTranslation: object with numeric x and y.\n"
+		"  ColorAndOpacity: \"#RRGGBB\" or \"#RRGGBBAA\", read as sRGB.\n"
+		"  ColorAndOpacity applies to TextBlock, Image, Button and UserWidget only. Other types are rejected.\n"
+		"- Resizing or repositioning through a Slot is not supported yet. For those, return an empty changes list and explain why.\n");
 }
+
 
 bool FAIWidgetCommandParser::ExtractJsonObject(const FString& InResponse, FString& OutJson)
 {
@@ -158,21 +159,21 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 
 	if (!InChangeObject.IsValid())
 	{
-		OutError = FText::Format(LOCTEXT("NotAnObject", "changes[{0}]이(가) 오브젝트가 아닙니다."), FText::AsNumber(InIndex));
+		OutError = FText::Format(LOCTEXT("NotAnObject", "changes[{0}] is not an object."), FText::AsNumber(InIndex));
 		return false;
 	}
 
 	FString OperationName;
 	if (!InChangeObject->TryGetStringField(OperationFieldName, OperationName))
 	{
-		OutError = FText::Format(LOCTEXT("NoOperation", "changes[{0}]에 operation이 없습니다."), FText::AsNumber(InIndex));
+		OutError = FText::Format(LOCTEXT("NoOperation", "changes[{0}] has no operation."), FText::AsNumber(InIndex));
 		return false;
 	}
 
 	if (!ParseOperation(OperationName, OutCommand.Operation))
 	{
 		OutError = FText::Format(
-			LOCTEXT("UnknownOperation", "changes[{0}]: 허용되지 않은 operation '{1}'"),
+			LOCTEXT("UnknownOperation", "changes[{0}]: operation '{1}' is not allowed."),
 			FText::AsNumber(InIndex),
 			FText::FromString(OperationName));
 		return false;
@@ -181,7 +182,7 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 	FString TargetWidgetName;
 	if (!InChangeObject->TryGetStringField(TargetWidgetFieldName, TargetWidgetName) || TargetWidgetName.IsEmpty())
 	{
-		OutError = FText::Format(LOCTEXT("NoTarget", "changes[{0}]에 target_widget이 없습니다."), FText::AsNumber(InIndex));
+		OutError = FText::Format(LOCTEXT("NoTarget", "changes[{0}] has no target_widget."), FText::AsNumber(InIndex));
 		return false;
 	}
 
@@ -190,7 +191,7 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 	const TSharedPtr<FJsonValue> ValueField = InChangeObject->TryGetField(ValueFieldName);
 	if (!ValueField.IsValid())
 	{
-		OutError = FText::Format(LOCTEXT("NoValue", "changes[{0}]에 value가 없습니다."), FText::AsNumber(InIndex));
+		OutError = FText::Format(LOCTEXT("NoValue", "changes[{0}] has no value."), FText::AsNumber(InIndex));
 		return false;
 	}
 
@@ -202,7 +203,7 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 	if (!HasExpectedValueType(OutCommand.Operation, ValueField->Type))
 	{
 		OutError = FText::Format(
-			LOCTEXT("WrongValueType", "changes[{0}]: {1}의 value 타입이 맞지 않습니다."),
+			LOCTEXT("WrongValueType", "changes[{0}]: wrong value type for {1}."),
 			FText::AsNumber(InIndex),
 			FText::FromString(FAIWidgetCommand::GetOperationName(OutCommand.Operation)));
 		return false;
@@ -215,7 +216,7 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 		FString VisibilityName;
 		if (!ValueField->TryGetString(VisibilityName))
 		{
-			OutError = FText::Format(LOCTEXT("VisibilityNotString", "changes[{0}]: Visibility value는 문자열이어야 합니다."), FText::AsNumber(InIndex));
+			OutError = FText::Format(LOCTEXT("VisibilityNotString", "changes[{0}]: Visibility value must be a string."), FText::AsNumber(InIndex));
 			return false;
 		}
 
@@ -224,7 +225,7 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 		if (EnumValue == INDEX_NONE)
 		{
 			OutError = FText::Format(
-				LOCTEXT("UnknownVisibility", "changes[{0}]: 알 수 없는 Visibility '{1}'"),
+				LOCTEXT("UnknownVisibility", "changes[{0}]: unknown Visibility '{1}'."),
 				FText::AsNumber(InIndex),
 				FText::FromString(VisibilityName));
 			return false;
@@ -239,7 +240,7 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 		bool bValue = false;
 		if (!ValueField->TryGetBool(bValue))
 		{
-			OutError = FText::Format(LOCTEXT("EnabledNotBool", "changes[{0}]: Enabled value는 true/false여야 합니다."), FText::AsNumber(InIndex));
+			OutError = FText::Format(LOCTEXT("EnabledNotBool", "changes[{0}]: Enabled value must be true or false."), FText::AsNumber(InIndex));
 			return false;
 		}
 
@@ -252,7 +253,7 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 		FString TextValue;
 		if (!ValueField->TryGetString(TextValue))
 		{
-			OutError = FText::Format(LOCTEXT("TextNotString", "changes[{0}]: Text value는 문자열이어야 합니다."), FText::AsNumber(InIndex));
+			OutError = FText::Format(LOCTEXT("TextNotString", "changes[{0}]: Text value must be a string."), FText::AsNumber(InIndex));
 			return false;
 		}
 
@@ -265,7 +266,7 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 		double OpacityValue = 0.0;
 		if (!ValueField->TryGetNumber(OpacityValue))
 		{
-			OutError = FText::Format(LOCTEXT("OpacityNotNumber", "changes[{0}]: RenderOpacity value는 숫자여야 합니다."), FText::AsNumber(InIndex));
+			OutError = FText::Format(LOCTEXT("OpacityNotNumber", "changes[{0}]: RenderOpacity value must be a number."), FText::AsNumber(InIndex));
 			return false;
 		}
 
@@ -278,7 +279,7 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 		const TSharedPtr<FJsonObject>* TranslationObject = nullptr;
 		if (!ValueField->TryGetObject(TranslationObject) || !TranslationObject || !TranslationObject->IsValid())
 		{
-			OutError = FText::Format(LOCTEXT("TranslationNotObject", "changes[{0}]: RenderTranslation value는 x와 y를 가진 오브젝트여야 합니다."), FText::AsNumber(InIndex));
+			OutError = FText::Format(LOCTEXT("TranslationNotObject", "changes[{0}]: RenderTranslation value must be an object with x and y."), FText::AsNumber(InIndex));
 			return false;
 		}
 
@@ -287,7 +288,7 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 		if (!(*TranslationObject)->TryGetNumberField(TEXT("x"), TranslationX)
 			|| !(*TranslationObject)->TryGetNumberField(TEXT("y"), TranslationY))
 		{
-			OutError = FText::Format(LOCTEXT("TranslationMissingAxis", "changes[{0}]: RenderTranslation에 x 또는 y가 없습니다."), FText::AsNumber(InIndex));
+			OutError = FText::Format(LOCTEXT("TranslationMissingAxis", "changes[{0}]: RenderTranslation is missing x or y."), FText::AsNumber(InIndex));
 			return false;
 		}
 
@@ -300,14 +301,14 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 		FString HexValue;
 		if (!ValueField->TryGetString(HexValue))
 		{
-			OutError = FText::Format(LOCTEXT("ColorNotString", "changes[{0}]: ColorAndOpacity value는 문자열이어야 합니다."), FText::AsNumber(InIndex));
+			OutError = FText::Format(LOCTEXT("ColorNotString", "changes[{0}]: ColorAndOpacity value must be a string."), FText::AsNumber(InIndex));
 			return false;
 		}
 
 		if (!FAIWidgetCommand::ParseHexColor(HexValue, OutCommand.ColorAndOpacity))
 		{
 			OutError = FText::Format(
-				LOCTEXT("ColorNotHex", "changes[{0}]: '{1}'은(는) 색으로 읽을 수 없습니다. #RRGGBB 또는 #RRGGBBAA 형식이어야 합니다."),
+				LOCTEXT("ColorNotHex", "changes[{0}]: '{1}' is not a colour. Use #RRGGBB or #RRGGBBAA."),
 				FText::AsNumber(InIndex),
 				FText::FromString(HexValue));
 			return false;
@@ -317,7 +318,7 @@ bool FAIWidgetCommandParser::ParseChange(const TSharedPtr<FJsonObject>& InChange
 	}
 
 	default:
-		OutError = FText::Format(LOCTEXT("UnhandledOperation", "changes[{0}]: 처리할 수 없는 operation입니다."), FText::AsNumber(InIndex));
+		OutError = FText::Format(LOCTEXT("UnhandledOperation", "changes[{0}]: operation cannot be handled."), FText::AsNumber(InIndex));
 		return false;
 	}
 }
@@ -332,7 +333,7 @@ bool FAIWidgetCommandParser::Parse(const FString& InResponse, TArray<FAIWidgetCo
 	FString JsonText;
 	if (!ExtractJsonObject(InResponse, JsonText))
 	{
-		OutErrors.Add(LOCTEXT("NoJson", "응답에서 JSON 오브젝트를 찾지 못했습니다."));
+		OutErrors.Add(LOCTEXT("NoJson", "No JSON object was found in the reply."));
 		return false;
 	}
 
@@ -340,7 +341,7 @@ bool FAIWidgetCommandParser::Parse(const FString& InResponse, TArray<FAIWidgetCo
 	const TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(JsonText);
 	if (!FJsonSerializer::Deserialize(JsonReader, RootObject) || !RootObject.IsValid())
 	{
-		OutErrors.Add(LOCTEXT("BadJson", "JSON을 해석하지 못했습니다."));
+		OutErrors.Add(LOCTEXT("BadJson", "The JSON could not be parsed."));
 		return false;
 	}
 
@@ -357,13 +358,13 @@ bool FAIWidgetCommandParser::Parse(const FString& InResponse, TArray<FAIWidgetCo
 	}
 	else
 	{
-		OutErrors.Add(LOCTEXT("NoChanges", "JSON에 changes 배열이 없습니다."));
+		OutErrors.Add(LOCTEXT("NoChanges", "The JSON has no changes array."));
 		return false;
 	}
 
 	if (ChangeValues.IsEmpty())
 	{
-		OutErrors.Add(LOCTEXT("EmptyChanges", "changes가 비어 있습니다. AI가 변경할 것이 없다고 판단했을 수 있습니다."));
+		OutErrors.Add(LOCTEXT("EmptyChanges", "changes is empty. The assistant may have decided there was nothing to change."));
 		return false;
 	}
 
@@ -372,7 +373,7 @@ bool FAIWidgetCommandParser::Parse(const FString& InResponse, TArray<FAIWidgetCo
 		const TSharedPtr<FJsonObject>* ChangeObject = nullptr;
 		if (!ChangeValues[Index].IsValid() || !ChangeValues[Index]->TryGetObject(ChangeObject) || !ChangeObject)
 		{
-			OutErrors.Add(FText::Format(LOCTEXT("ChangeNotObject", "changes[{0}]이(가) 오브젝트가 아닙니다."), FText::AsNumber(Index)));
+			OutErrors.Add(FText::Format(LOCTEXT("ChangeNotObject", "changes[{0}] is not an object."), FText::AsNumber(Index)));
 			continue;
 		}
 

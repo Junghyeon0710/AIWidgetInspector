@@ -20,7 +20,7 @@ void FAIWidgetInspectorCommands::RegisterCommands()
 	UI_COMMAND(
 		ToggleInspectMode,
 		"AI Widget Inspector",
-		"Inspect Mode를 켠다. 마우스를 UI 위로 옮기면 대상 Widget을 추적하고, 클릭하면 해당 Widget을 선택한다. ESC로 취소.",
+		"Turn on Inspect Mode. Move the mouse over the UI to track the widget under the cursor, click to select it, Esc to cancel.",
 		EUserInterfaceActionType::ToggleButton,
 		FInputChord(EModifierKey::Control | EModifierKey::Shift, EKeys::I));
 
@@ -29,7 +29,7 @@ void FAIWidgetInspectorCommands::RegisterCommands()
 	UI_COMMAND(
 		SaveWidgetAsset,
 		"Save Widget Asset",
-		"선택된 Widget의 Blueprint를 저장한다. 저장 전까지는 Ctrl+Z로 되돌릴 수 있다.",
+		"Save the selected widget's Blueprint. Until you save, Ctrl+Z still undoes the change.",
 		EUserInterfaceActionType::Button,
 		FInputChord(EModifierKey::Control, EKeys::S));
 }

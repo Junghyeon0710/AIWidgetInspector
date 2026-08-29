@@ -42,14 +42,14 @@ FString FAIWidgetRequest::BuildPrompt() const
 	if (Kind == EAIWidgetRequestKind::ToolChangeRequest)
 	{
 		Prompt += TEXT("\n[How to apply]\n");
-		Prompt += TEXT("너는 Unreal 에디터에 MCP로 연결돼 있다. 위 Widget을 직접 고칠 수 있다.\n");
-		Prompt += TEXT("- AIWidgetInspector.AIWidgetInspectorToolset 툴세트를 쓴다. describe_toolset으로 인자 형식을 확인해라.\n");
-		Prompt += TEXT("- 눈으로 봐야 하는 변경은 PreviewWidgetChange로 한다. 에셋은 그대로 두고 되돌리기 쉽다.\n");
-		Prompt += TEXT("- 에셋에 쓰거나 저장하지 마라. 미리보기까지만 하면 된다.\n");
-		Prompt += TEXT("- 마무리 말에 패널의 Save to Asset 버튼을 누르면 저장된다고 알려 줘라. 저장해 달라고 말해 달라고 요구하지 마라.\n");
-		Prompt += TEXT("- 다른 Widget을 바꿔야 하면 ListWidgetTree로 이름을 먼저 확인해라. 이름을 지어내지 마라.\n");
-		Prompt += TEXT("- 실제로 툴을 호출해라. 무엇을 하겠다는 설명만 남기지 마라.\n");
-		Prompt += TEXT("- 다 끝나면 무엇을 왜 그렇게 바꿨는지 한두 문장으로 알려 줘라.\n");
+		Prompt += TEXT("You are connected to the Unreal Editor over MCP and can change the widget above directly.\n");
+		Prompt += TEXT("- Use the AIWidgetInspector.AIWidgetInspectorToolset toolset. Call describe_toolset for argument formats.\n");
+		Prompt += TEXT("- Make changes with PreviewWidgetChange. It leaves the asset alone and is easy to undo.\n");
+		Prompt += TEXT("- Do not write to the asset and do not save. A preview is enough.\n");
+		Prompt += TEXT("- Close by telling the user the Save to Asset button in the panel will save it. Do not ask them to tell you to save.\n");
+		Prompt += TEXT("- To change a different widget, call ListWidgetTree first for its name. Never invent a name.\n");
+		Prompt += TEXT("- Actually call the tools. Do not describe what you would do.\n");
+		Prompt += TEXT("- Finish with a sentence or two on what you changed and why.\n");
 	}
 
 	return Prompt;

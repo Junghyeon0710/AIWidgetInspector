@@ -77,7 +77,7 @@ FString FAIWidgetContextBuilder::BuildContext(
 
 	if (InInspection.bMetaDataFromAncestor)
 	{
-		Builder.Append(TEXT("Note: 이 Slate Widget에는 UMG 메타데이터가 없어 상위 Widget의 것을 사용했다. UMG 항목은 정확히 이 Widget의 것이 아닐 수 있다.\n"));
+		Builder.Append(TEXT("Note: this Slate widget carries no UMG metadata, so the fields below come from an ancestor and may not describe this widget exactly.\n"));
 	}
 
 	// --- 지금 상태 ---
@@ -125,7 +125,7 @@ FString FAIWidgetContextBuilder::BuildContext(
 	Builder.Append(TEXT("\n[Widget Path]\n"));
 	if (StartIndex > 0)
 	{
-		Builder.Appendf(TEXT("... (위로 %d 단계 생략)\n"), StartIndex);
+		Builder.Appendf(TEXT("... (%d level(s) above omitted)\n"), StartIndex);
 	}
 
 	for (int32 Index = StartIndex; Index < NumWidgets; ++Index)
@@ -169,7 +169,7 @@ FString FAIWidgetContextBuilder::BuildContext(
 	// "왜 클릭이 안 되는지" 같은 질문은 대개 SNew 근처의 Visibility나 OnClicked에서 답이 나온다.
 	if (InSourceInfo.HasSnippet())
 	{
-		Builder.Appendf(TEXT("\n[Source Snippet] %s:%d-%d  ('>' 표시가 이 Widget이 만들어진 줄)\n"),
+		Builder.Appendf(TEXT("\n[Source Snippet] %s:%d-%d  ('>' marks the line this widget was created on)\n"),
 			*FPaths::GetCleanFilename(InSourceInfo.ResolvedFile),
 			InSourceInfo.SnippetStartLine,
 			InSourceInfo.SnippetEndLine);
