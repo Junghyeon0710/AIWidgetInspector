@@ -6,7 +6,9 @@
 
 #include "Async/Async.h"
 #include "HAL/PlatformProcess.h"
+#include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "ModelContextProtocolSettings.h"
 
 #define LOCTEXT_NAMESPACE "FAICliProvider"
 
@@ -95,6 +97,37 @@ bool FAICliProvider::FindExecutable(const FString& InExecutableName, FString& Ou
 	}
 
 	return false;
+}
+
+FString FAICliProvider::GetEditorMcpUrl()
+{
+	// 포트와 경로는 프로젝트별 설정이라 하드코딩하면 사용자가 바꿔 놓았을 때 조용히 어긋난다.
+	return FString::Printf(TEXT("http://127.0.0.1:%u%s"),
+		UE::ModelContextProtocol::GetServerPortNumber(),
+		*UE::ModelContextProtocol::GetServerUrlPath());
+}
+
+bool FAICliProvider::IsEditorMcpRunning()
+{
+	return UE::ModelContextProtocol::ShouldAutoStartServer();
+}
+
+FString FAICliProvider::WriteMcpConfigFile(const FString& InServerName)
+{
+	const FString ConfigPath = FPaths::ProjectIntermediateDir() / TEXT("AIWidgetInspector") / TEXT("McpConfig.json");
+
+	const FString Contents = FString::Printf(
+		TEXT("{\"mcpServers\":{\"%s\":{\"type\":\"http\",\"url\":\"%s\"}}}"),
+		*InServerName,
+		*GetEditorMcpUrl());
+
+	if (!FFileHelper::SaveStringToFile(Contents, *ConfigPath))
+	{
+		UE_LOG(LogAIWidgetInspector, Warning, TEXT("MCP 설정 파일을 쓰지 못했습니다: %s"), *ConfigPath);
+		return FString();
+	}
+
+	return ConfigPath;
 }
 
 bool FAICliProvider::IsAvailable() const
@@ -218,7 +251,43 @@ void FAICliProvider::SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetR
 	}
 
 	const FString Prompt = InRequest.BuildPrompt();
-	const FString Arguments = FString::Join(Config.Arguments, TEXT(" "));
+
+	TArray<FString> ArgumentList = Config.Arguments;
+
+	// Tool 모드면 에디터 MCP를 물려 준다. --strict-mcp-config를 함께 주는 이유는
+	// 사용자의 다른 MCP 서버가 딸려 들어오면 이 요청과 상관없는 도구가 붙기 때문이다.
+	if (Config.bUseUnrealMcp)
+	{
+		if (!IsEditorMcpRunning())
+		{
+			InOnComplete.ExecuteIfBound(FAIWidgetResponse::MakeFailure(LOCTEXT(
+				"McpNotRunning",
+				"에디터의 MCP 서버가 꺼져 있습니다. Project Settings > Model Context Protocol 에서 Auto Start Server를 켜고 에디터를 다시 시작하세요.")));
+			return;
+		}
+
+		const FString ConfigPath = WriteMcpConfigFile(Config.McpServerName);
+		if (ConfigPath.IsEmpty())
+		{
+			InOnComplete.ExecuteIfBound(FAIWidgetResponse::MakeFailure(LOCTEXT(
+				"McpConfigFailed", "MCP 설정 파일을 만들지 못했습니다.")));
+			return;
+		}
+
+		ArgumentList.Add(TEXT("--strict-mcp-config"));
+		ArgumentList.Add(TEXT("--mcp-config"));
+		ArgumentList.Add(FString::Printf(TEXT("\"%s\""), *ConfigPath));
+
+		// 미리 허용해 두지 않으면 -p 모드에서 승인을 물을 데가 없어 그냥 멈춘다.
+		// 열어 주는 것은 에디터 MCP의 세 진입점뿐이고, 그 안에서 부를 수 있는 것은
+		// 우리 툴세트가 내놓은 다섯 개다.
+		ArgumentList.Add(TEXT("--allowedTools"));
+		ArgumentList.Add(FString::Printf(
+			TEXT("mcp__%s__list_toolsets,mcp__%s__describe_toolset,mcp__%s__call_tool"),
+			*Config.McpServerName, *Config.McpServerName, *Config.McpServerName));
+	}
+
+	const FString Arguments = FString::Join(ArgumentList, TEXT(" "));
 	const FString ProviderName = Config.DisplayName.ToString();
 
 	UE_LOG(LogAIWidgetInspector, Log, TEXT("%s 실행: %s %s (프롬프트 %d자)"),

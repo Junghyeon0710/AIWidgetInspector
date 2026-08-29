@@ -125,6 +125,20 @@ directly:
 | `ApplyWidgetChangeToAsset` | Writes into the Widget Blueprint; Ctrl+Z undoes it |
 | `RevertPreview` | Restores every previewed property to its original |
 
+Picking **Claude Code (Unreal MCP)** and pressing **Request Change** runs the whole loop: the plugin
+writes an MCP config pointing at the editor, launches the CLI against it, and the model reads the
+selection and applies the change through the tools. Nothing is pasted, and no JSON is parsed out of
+the reply — by the time it arrives the change has already happened, and the text explains what was
+done.
+
+The same CLI is registered twice on purpose. One entry returns JSON for the plugin to apply, the
+other lets the model act. Which one you are using is visible in the provider list rather than hidden
+behind a setting.
+
+The editor's MCP server has to be running for the tool provider: **Project Settings → Model Context
+Protocol → Auto Start Server**. The port and path are read from those same settings, so changing
+them does not strand the CLI at a stale address.
+
 This does not widen what the AI can do. The five tools are the whitelist, the arguments go through
 the same parser and validator as the JSON path, and preview and asset writes are separate tools
 rather than a flag — so the difference is visible in the tool name and in the log, not buried in a
@@ -220,6 +234,7 @@ undo is the whole story.
 |---|---|---|
 | **Clipboard** | Copies the prompt so you can paste it into whatever assistant you already use | nothing |
 | **Claude Code** | Pipes the prompt to `claude -p` and shows what comes back | `claude` on `PATH` |
+| **Claude Code (Unreal MCP)** | Same CLI, connected to the editor — it calls the widget tools itself | `claude` on `PATH`, MCP server running |
 | **Codex** | Pipes the prompt to `codex exec -` and shows what comes back | `codex` on `PATH` |
 
 The CLI providers hold no credentials. The prompt goes to the tool's stdin, the answer comes back

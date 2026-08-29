@@ -18,6 +18,14 @@ enum class EAIWidgetRequestKind : uint8
 
 	/** 선택된 Widget을 바꿔달라고 요청한다. 답은 구조화된 변경 명령. (Phase 6) */
 	ChangeRequest,
+
+	/**
+	 * 바꿔달라고 요청하되, AI가 에디터 Tool을 직접 불러 처리한다. (Phase 9)
+	 *
+	 * ChangeRequest와 달리 응답 JSON을 파싱하지 않는다. 답이 돌아왔을 때는 변경이
+	 * 이미 끝나 있고, 본문은 무엇을 왜 했는지에 대한 설명이다.
+	 */
+	ToolChangeRequest,
 };
 
 /** Provider에게 넘기는 한 건의 요청. */
@@ -75,6 +83,14 @@ public:
 
 	/** 지금 쓸 수 있는 상태인지. (CLI 미설치, 인증 안 됨 등) */
 	virtual bool IsAvailable() const = 0;
+
+	/**
+	 * 이 Provider가 에디터 Tool을 직접 부를 수 있는지.
+	 *
+	 * true면 변경 요청이 ToolChangeRequest로 나가고, 패널은 응답에서 JSON을 찾지 않는다.
+	 * 답이 왔을 때 이미 적용돼 있기 때문이다.
+	 */
+	virtual bool UsesEditorTools() const { return false; }
 
 	/** 요청을 보낸다. 완료되면 InOnComplete를 게임 스레드에서 호출한다. */
 	virtual void SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetResponse InOnComplete) = 0;

@@ -6,9 +6,11 @@
 
 FString FAIWidgetRequest::BuildPrompt() const
 {
-	const TCHAR* SectionHeader = (Kind == EAIWidgetRequestKind::ChangeRequest)
-		? TEXT("[Requested Change]")
-		: TEXT("[User Question]");
+	const TCHAR* SectionHeader = TEXT("[User Question]");
+	if (Kind == EAIWidgetRequestKind::ChangeRequest || Kind == EAIWidgetRequestKind::ToolChangeRequest)
+	{
+		SectionHeader = TEXT("[Requested Change]");
+	}
 
 	FString Prompt;
 	Prompt.Reserve(Context.Len() + UserMessage.Len() + 64);
@@ -32,6 +34,21 @@ FString FAIWidgetRequest::BuildPrompt() const
 	{
 		Prompt += TEXT("\n");
 		Prompt += FAIWidgetCommandParser::GetSchemaInstructions();
+	}
+
+	// Tool 모드에서는 형식 안내를 붙이지 않는다. 부를 수 있는 함수와 인자 형식은
+	// MCP 쪽 스키마가 이미 들고 있고, 여기서 또 적으면 둘이 어긋날 때 모델이 헷갈린다.
+	// 대신 어디에 붙어 있고 무엇부터 해야 하는지를 알려 준다.
+	if (Kind == EAIWidgetRequestKind::ToolChangeRequest)
+	{
+		Prompt += TEXT("\n[How to apply]\n");
+		Prompt += TEXT("너는 Unreal 에디터에 MCP로 연결돼 있다. 위 Widget을 직접 고칠 수 있다.\n");
+		Prompt += TEXT("- AIWidgetInspector.AIWidgetInspectorToolset 툴세트를 쓴다. describe_toolset으로 인자 형식을 확인해라.\n");
+		Prompt += TEXT("- 눈으로 봐야 하는 변경은 PreviewWidgetChange로 한다. 에셋은 그대로 두고 되돌리기 쉽다.\n");
+		Prompt += TEXT("- 사용자가 에셋에 저장하라고 분명히 말했을 때만 ApplyWidgetChangeToAsset을 쓴다.\n");
+		Prompt += TEXT("- 다른 Widget을 바꿔야 하면 ListWidgetTree로 이름을 먼저 확인해라. 이름을 지어내지 마라.\n");
+		Prompt += TEXT("- 실제로 툴을 호출해라. 무엇을 하겠다는 설명만 남기지 마라.\n");
+		Prompt += TEXT("- 다 끝나면 무엇을 왜 그렇게 바꿨는지 한두 문장으로 알려 줘라.\n");
 	}
 
 	return Prompt;

@@ -1437,7 +1437,13 @@ FReply SAIWidgetInspectorPanel::HandleAskAIClicked()
 
 FReply SAIWidgetInspectorPanel::HandleRequestChangeClicked()
 {
-	SendRequest(EAIWidgetRequestKind::ChangeRequest);
+	// Provider가 에디터 Tool을 부를 수 있으면 JSON을 받아 우리가 적용할 이유가 없다.
+	const bool bUsesTools = ActiveProvider.IsValid() && ActiveProvider->UsesEditorTools();
+
+	SendRequest(bUsesTools
+		? EAIWidgetRequestKind::ToolChangeRequest
+		: EAIWidgetRequestKind::ChangeRequest);
+
 	return FReply::Handled();
 }
 
@@ -1453,6 +1459,14 @@ void SAIWidgetInspectorPanel::HandleAIResponse(const FAIWidgetResponse& InRespon
 	if (!InResponse.bSuccess)
 	{
 		UE_LOG(LogAIWidgetInspector, Warning, TEXT("AI 요청 실패: %s"), *InResponse.Message.ToString());
+		return;
+	}
+
+	// Tool 모드에서는 답이 왔을 때 변경이 이미 끝나 있다. 본문에서 JSON을 찾으면
+	// 설명에 섞인 값을 명령으로 오해해 같은 변경을 한 번 더 적용하게 된다.
+	if (PendingRequestKind == EAIWidgetRequestKind::ToolChangeRequest)
+	{
+		UE_LOG(LogAIWidgetInspector, Log, TEXT("AI가 에디터 Tool로 직접 처리했습니다."));
 		return;
 	}
 

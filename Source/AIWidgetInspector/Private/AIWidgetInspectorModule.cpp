@@ -98,6 +98,20 @@ void FAIWidgetInspectorModule::StartupModule()
 		Providers.Add(MakeShared<FAICliProvider>(MoveTemp(ClaudeConfig)));
 	}
 
+	// 같은 CLI를 두 번 등록한다. 하나는 답을 받아 우리가 적용하는 방식,
+	// 하나는 AI가 에디터 Tool을 직접 부르는 방식이다. 어느 쪽인지 목록에서 보이는 편이
+	// 인자 하나로 몰래 갈리는 것보다 낫다.
+	{
+		FAICliProvider::FConfig ClaudeMcpConfig;
+		ClaudeMcpConfig.Name = TEXT("ClaudeCliMcp");
+		ClaudeMcpConfig.DisplayName = LOCTEXT("ClaudeCliMcp", "Claude Code (Unreal MCP)");
+		ClaudeMcpConfig.Description = LOCTEXT("ClaudeCliMcpDesc", "claude CLI가 에디터 MCP에 붙어 Widget을 직접 고친다.");
+		ClaudeMcpConfig.Executable = TEXT("claude");
+		ClaudeMcpConfig.Arguments = { TEXT("-p") };
+		ClaudeMcpConfig.bUseUnrealMcp = true;
+		Providers.Add(MakeShared<FAICliProvider>(MoveTemp(ClaudeMcpConfig)));
+	}
+
 	{
 		FAICliProvider::FConfig CodexConfig;
 		CodexConfig.Name = TEXT("CodexCli");
