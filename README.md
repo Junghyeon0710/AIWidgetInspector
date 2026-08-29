@@ -224,10 +224,21 @@ quietly by design — a bad path just yields empty fields, and the model still a
 resolver looks like a widget that happens to have no C++ information. The test pins the remap
 against the real engine install and checks the snippet window at both ends of a file.
 
+## Installing
+
+Clone into your project's `Plugins/` folder — the repository root is the plugin root, so it lands
+in the right shape:
+
+```bash
+git clone https://github.com/Junghyeon0710/AIWidgetInspector.git Plugins/AIWidgetInspector
+```
+
+Then regenerate project files and rebuild the editor target. The plugin needs a C++ project; a
+Blueprint-only project has no editor target to compile into.
+
 ## Building from source
 
-Drop the plugin into your project's `Plugins/` folder and regenerate project files. To package it
-for distribution:
+To package it for distribution:
 
 ```bash
 RunUAT BuildPlugin -Plugin="<path>/AIWidgetInspector.uplugin" -Package="<output>" -Rocket
