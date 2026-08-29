@@ -266,6 +266,43 @@ bool FAIWidgetCommandParserTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("각각 이유가 남는다"), Errors.Num(), 2);
 	}
 
+	// --- 실제 CLI 응답을 그대로 읽는다 ---
+	//
+	// 아래는 claude CLI가 이 플러그인의 프롬프트에 실제로 돌려준 응답을 그대로 옮긴 것이다.
+	// 설명이 앞뒤로 붙고 코드 펜스에 싸여 있는, 손으로 만든 예시가 아닌 진짜 모양이다.
+	// 스키마를 고치면서 모델이 내놓는 형태가 파서에서 벗어나는 일을 여기서 잡는다.
+	{
+		const FString Response = TEXT(
+			"현재 텍스트가 잘 안 보이는 문제를 해결하기 위해 TextBlock_37의 글자 색을 밝고 대비가 좋은 색으로 바꿔줄게요.\n"
+			"\n"
+			"```json\n"
+			"{\n"
+			"  \"changes\": [\n"
+			"    { \"operation\": \"SetColorAndOpacity\", \"target_widget\": \"TextBlock_37\", \"value\": \"#FFD54F\" }\n"
+			"  ]\n"
+			"}\n"
+			"```\n"
+			"\n"
+			"밝은 앰버 계열(#FFD54F)로 설정해서 어두운 배경에서도 눈에 잘 띄면서 톤도 부드럽게 어울리도록 했습니다. "
+			"배경이 밝은 색이라면 어울리지 않을 수 있으니, 배경색을 알려주시면 더 적합한 색으로 다시 제안해 드릴게요.\n");
+
+		TArray<FAIWidgetCommand> Commands;
+		TArray<FText> Errors;
+		TestTrue(TEXT("실제 CLI 응답을 읽어야 한다"), FAIWidgetCommandParser::Parse(Response, Commands, Errors));
+		TestEqual(TEXT("명령 1건"), Commands.Num(), 1);
+		TestEqual(TEXT("오류 없음"), Errors.Num(), 0);
+
+		if (Commands.Num() == 1)
+		{
+			TestEqual(TEXT("Operation"), static_cast<int32>(Commands[0].Operation), static_cast<int32>(EAIWidgetOperation::SetColorAndOpacity));
+			TestEqual(TEXT("대상 이름"), Commands[0].TargetWidgetName, FName(TEXT("TextBlock_37")));
+			TestEqual(TEXT("색"), FAIWidgetCommand::ToHexColor(Commands[0].ColorAndOpacity), FString(TEXT("#FFD54FFF")));
+		}
+
+		// 설명 안에도 "#FFD54F" 가 한 번 더 나온다. 파서가 JSON 블록만 보고 있는지 확인한다.
+		TestEqual(TEXT("설명에 섞인 색을 명령으로 착각하지 않는다"), Commands.Num(), 1);
+	}
+
 	return true;
 }
 
