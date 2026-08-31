@@ -59,14 +59,22 @@ private:
 	/** cd 후 claude를 실행한다. 셸이 준비된 뒤에만 부른다. */
 	void LaunchCli(double InCurrentTime);
 
+	/** 이 패널의 대화 id를 적어 두는 곳. 에디터를 다시 켜도 남아 있어야 한다. */
+	static FString GetSessionIdFilePath();
+
 	/**
-	 * 이 프로젝트로 나눈 대화가 남아 있는지.
+	 * 이 패널이 쓰는 대화 id를 읽어 온다. 없으면 새로 만들어 적는다.
 	 *
-	 * CLI는 대화를 작업 디렉터리별로 홈 아래에 쌓아 둔다. 폴더 이름은 그 경로에서
-	 * 영숫자가 아닌 글자를 전부 '-'로 바꾼 것이다. 내부 규칙이라 언제든 바뀔 수 있으므로,
-	 * 틀리면 이어받지 못할 뿐 실행 자체는 되도록 실패를 조용히 넘긴다.
+	 * id를 우리가 정해서 넘기는 이유는, --continue가 "그 폴더의 가장 최근 대화"를
+	 * 집어오기 때문이다. 같은 프로젝트에서 CLI를 따로 띄워 두면 그쪽 대화를 가져와
+	 * 엉뚱한 맥락에 이어 붙는다.
+	 *
+	 * 파일이 있다는 것 자체가 그 id로 이미 시작했다는 뜻이므로, CLI가 대화를 어디에
+	 * 어떤 이름으로 쌓아 두는지는 알 필요가 없다.
+	 *
+	 * @param bOutIsNew 이번에 새로 만들었으면 true. 이어받을 것이 없다는 뜻이다.
 	 */
-	static bool HasPriorConversation(const FString& InWorkingDirectory);
+	static FString LoadOrCreateSessionId(bool& bOutIsNew);
 
 	FReply HandleRestartClicked();
 	FText GetStatusText() const;
@@ -118,6 +126,9 @@ private:
 
 	/** 마지막 실행이 지난 대화를 이어받았는지. 상태줄에 알려 준다. */
 	bool bResumedConversation = false;
+
+	/** 이 패널의 대화 id. 처음 실행할 때 정해져서 에디터를 다시 켜도 유지된다. */
+	FString SessionId;
 
 	/** 셸이 끝내 뜨지 않았다. 상태줄에 이유를 남긴다. */
 	bool bShellTimedOut = false;

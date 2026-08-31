@@ -7,7 +7,8 @@
 
 #include "Framework/Application/SlateApplication.h"
 #include "HAL/FileManager.h"
-#include "HAL/PlatformProcess.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Guid.h"
 #include "Misc/Paths.h"
 #include "STerminal.h"
 #include "Styling/AppStyle.h"
@@ -152,33 +153,44 @@ void SAIWidgetTerminal::EnsurePumpRunning()
 	PumpHandle = RegisterActiveTimer(0.1f, FWidgetActiveTimerDelegate::CreateSP(this, &SAIWidgetTerminal::OnPump));
 }
 
-bool SAIWidgetTerminal::HasPriorConversation(const FString& InWorkingDirectory)
+FString SAIWidgetTerminal::GetSessionIdFilePath()
 {
-	const FString HomeDirectory = FPlatformProcess::UserHomeDir();
-	if (HomeDirectory.IsEmpty())
+	// Saved 아래에 둔다. 사용자마다 다른 값이고 저장소에 들어갈 것이 아니다.
+	return FPaths::ProjectSavedDir() / TEXT("AIWidgetInspector") / TEXT("TerminalSession.txt");
+}
+
+FString SAIWidgetTerminal::LoadOrCreateSessionId(bool& bOutIsNew)
+{
+	const FString FilePath = GetSessionIdFilePath();
+
+	FString StoredId;
+	if (FFileHelper::LoadFileToString(StoredId, *FilePath))
 	{
-		return false;
+		StoredId.TrimStartAndEndInline();
+
+		// 손으로 고쳤거나 반쯤 쓰이다 만 파일을 그대로 넘기면 CLI가 인자를 거부한다.
+		FGuid ParsedGuid;
+		if (FGuid::Parse(StoredId, ParsedGuid))
+		{
+			bOutIsNew = false;
+			return StoredId;
+		}
+
+		UE_LOG(LogAIWidgetInspector, Warning,
+			TEXT("The stored terminal session id is not a GUID. Starting a new conversation. (%s)"), *FilePath);
 	}
 
-	// 끝의 구분자를 떼지 않으면 폴더 이름 끝에 '-'가 하나 더 붙어 어긋난다.
-	FString NormalizedPath = InWorkingDirectory;
-	FPaths::NormalizeDirectoryName(NormalizedPath);
+	const FString NewId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphensLower);
 
-	FString EncodedPath;
-	EncodedPath.Reserve(NormalizedPath.Len());
-	for (const TCHAR Character : NormalizedPath)
+	// 적어 두지 못하면 이어받을 방법이 없다. 그래도 이번 실행은 그대로 진행한다.
+	if (!FFileHelper::SaveStringToFile(NewId, *FilePath))
 	{
-		EncodedPath.AppendChar(FChar::IsAlnum(Character) ? Character : TEXT('-'));
+		UE_LOG(LogAIWidgetInspector, Warning,
+			TEXT("Could not write the terminal session id, so this conversation will not survive a restart. (%s)"), *FilePath);
 	}
 
-	const FString SessionDirectory = HomeDirectory / TEXT(".claude") / TEXT("projects") / EncodedPath;
-
-	// 폴더만 보고 판단하지 않는다. 비어 있는 채로 남아 있으면 이어받을 것이 없는데도
-	// --continue를 붙이게 되고, CLI가 그대로 죽는다.
-	TArray<FString> TranscriptFiles;
-	IFileManager::Get().FindFiles(TranscriptFiles, *(SessionDirectory / TEXT("*.jsonl")), /*Files=*/true, /*Directories=*/false);
-
-	return TranscriptFiles.Num() > 0;
+	bOutIsNew = true;
+	return NewId;
 }
 
 void SAIWidgetTerminal::LaunchCli(double InCurrentTime)
@@ -197,14 +209,29 @@ void SAIWidgetTerminal::LaunchCli(double InCurrentTime)
 	// 지난 대화를 이어받는다. 이 터미널은 에디터 안에 살기 때문에, C++을 고쳐 에디터를
 	// 다시 켜면 세션이 함께 사라진다. 그런데 UE에서 C++을 고치면 재시작은 늘 있는 일이라,
 	// 이어받지 않으면 패널에서 시작한 일을 패널에서 끝낼 수가 없다.
-	bResumedConversation = !bStartFresh && HasPriorConversation(ProjectDir);
-	if (bResumedConversation)
+	//
+	// 이어받을 대화를 id로 못 박는다. --continue는 "그 폴더의 가장 최근 대화"를 집어오는데,
+	// 같은 프로젝트에서 CLI를 따로 띄워 두면 그쪽 대화를 가져와 엉뚱한 맥락에 이어 붙는다.
+	if (bStartFresh)
 	{
-		Command += TEXT(" --continue");
+		// 새로 시작하라는 뜻이므로 지난 id는 버린다. 같은 id로 다시 열면 CLI가 거부한다.
+		IFileManager::Get().Delete(*GetSessionIdFilePath(), /*RequireExists=*/false);
+		bStartFresh = false;
 	}
 
-	// 다음부터는 다시 이어받는다. 새로 시작하는 것은 Restart CLI를 누른 그 한 번뿐이다.
-	bStartFresh = false;
+	bool bIsNewSession = false;
+	SessionId = LoadOrCreateSessionId(bIsNewSession);
+	bResumedConversation = !bIsNewSession;
+
+	// Printf의 포맷은 컴파일 타임에 검사되므로 리터럴이어야 한다. 삼항으로 고를 수 없다.
+	if (bResumedConversation)
+	{
+		Command += FString::Printf(TEXT(" --resume %s"), *SessionId);
+	}
+	else
+	{
+		Command += FString::Printf(TEXT(" --session-id %s"), *SessionId);
+	}
 
 	// 에디터 MCP가 떠 있으면 물려 준다. 그래야 CLI가 답만 하지 않고 위젯을 직접 고칠 수 있다.
 	// --allowedTools로 미리 열어 주지 않는 것이 원샷 Provider와 다른 점이다. 대화형이라
