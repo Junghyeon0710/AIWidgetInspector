@@ -75,7 +75,8 @@ private:
 	TSharedRef<SWidget> BuildChangePlanSection();
 
 	/** 섹션 하나를 접었다 펼 수 있게 감싼다. 패널이 길어져 아래쪽이 스크롤 밖으로 밀리는 걸 막는다. */
-	static TSharedRef<SWidget> MakeSection(const FText& InTitle, bool bInInitiallyCollapsed, TSharedRef<SWidget> InContent);
+	static TSharedRef<SWidget> MakeSection(const FText& InTitle, bool bInInitiallyCollapsed, TSharedRef<SWidget> InContent,
+		TAttribute<EVisibility> InVisibility = EVisibility::Visible);
 	static TSharedRef<SWidget> MakeDetailRow(const FText& InLabel, TAttribute<FText> InValue);
 
 	TSharedRef<ITableRow> HandleGeneratePathRow(FPathEntryPtr InEntry, const TSharedRef<STableViewBase>& InOwnerTable);
@@ -156,6 +157,15 @@ private:
 	//~ Provider를 지금 쓸 수 없을 때 패널에 띄우는 안내.
 	FText GetProviderWarningText() const;
 	EVisibility GetProviderWarningVisibility() const;
+
+	/**
+	 * 답을 주고받는 칸을 보일지.
+	 *
+	 * 대화형 Provider는 답이 터미널에 흐른다. 그런데도 이 칸이 남아 있으면, 한 줄짜리
+	 * 안내만 담은 빈 상자와 아무것도 파싱할 것이 없는 버튼을 늘 보게 된다. 무엇을
+	 * 하라는 것인지 헷갈리는 UI가 화면의 절반을 차지한다.
+	 */
+	EVisibility GetResponseAreaVisibility() const;
 
 	FReply HandleCopyContextClicked();
 	FReply HandleAskAIClicked();

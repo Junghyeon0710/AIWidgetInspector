@@ -170,7 +170,8 @@ void SAIWidgetInspectorPanel::Construct(
 			+ SScrollBox::Slot()
 			.Padding(8.0f, 0.0f, 8.0f, 8.0f)
 			[
-				MakeSection(LOCTEXT("SectionChangePlan", "Change Plan"), false, BuildChangePlanSection())
+				MakeSection(LOCTEXT("SectionChangePlan", "Change Plan"), false, BuildChangePlanSection(),
+					TAttribute<EVisibility>(this, &SAIWidgetInspectorPanel::GetResponseAreaVisibility))
 			]
 		]
 	];
@@ -256,12 +257,16 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildHeader()
 		];
 }
 
-TSharedRef<SWidget> SAIWidgetInspectorPanel::MakeSection(const FText& InTitle, bool bInInitiallyCollapsed, TSharedRef<SWidget> InContent)
+TSharedRef<SWidget> SAIWidgetInspectorPanel::MakeSection(const FText& InTitle, bool bInInitiallyCollapsed, TSharedRef<SWidget> InContent,
+	TAttribute<EVisibility> InVisibility)
 {
+	// 모든 섹션이 이 함수를 지난다. 여백과 제목 모양을 여기서만 정하면 섹션마다 어긋날 일이 없다.
 	return SNew(SExpandableArea)
 		.InitiallyCollapsed(bInInitiallyCollapsed)
 		.AreaTitle(InTitle)
-		.Padding(FMargin(0.0f, 2.0f, 0.0f, 4.0f))
+		.AreaTitleFont(FAppStyle::Get().GetFontStyle("DetailsView.CategoryFontStyle"))
+		.Padding(FMargin(0.0f, 4.0f, 0.0f, 8.0f))
+		.Visibility(InVisibility)
 		.BodyContent()
 		[
 			InContent
@@ -1334,127 +1339,133 @@ EVisibility SAIWidgetInspectorPanel::GetPreviewErrorVisibility() const
 
 TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildAskAISection()
 {
-	return SNew(SExpandableArea)
-		.InitiallyCollapsed(false)
-		.AreaTitle(LOCTEXT("SectionAskAI", "Ask AI"))
-		.BodyContent()
+	return MakeSection(LOCTEXT("SectionAskAI", "Ask AI"), false,
+		SNew(SVerticalBox)
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(0.0f, 0.0f, 0.0f, 6.0f)
+		[
+			SNew(SHorizontalBox)
+
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(0.0f, 0.0f, 6.0f, 0.0f)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("LabelProvider", "Provider"))
+				.ColorAndOpacity(FSlateColor::UseSubduedForeground())
+			]
+
+			// 남는 자리를 콤보가 가져간다. 이름이 짧은 것과 긴 것이 섞여 있어서, 폭을
+			// 내용에 맞추면 고를 때마다 옆의 버튼이 따라 움직인다.
+			+ SHorizontalBox::Slot()
+			.FillWidth(1.0f)
+			.VAlign(VAlign_Center)
+			[
+				SAssignNew(ProviderComboBox, SComboBox<FProviderPtr>)
+				.OptionsSource(&Providers)
+				.InitiallySelectedItem(ActiveProvider)
+				.OnGenerateWidget(this, &SAIWidgetInspectorPanel::HandleGenerateProviderItem)
+				.OnSelectionChanged(this, &SAIWidgetInspectorPanel::HandleProviderChanged)
+				.ToolTipText(this, &SAIWidgetInspectorPanel::GetActiveProviderTooltip)
+				[
+					SNew(STextBlock)
+					.Text(this, &SAIWidgetInspectorPanel::GetActiveProviderText)
+				]
+			]
+
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(6.0f, 0.0f, 0.0f, 0.0f)
+			[
+				SNew(SButton)
+				.Text(LOCTEXT("CopyContext", "Copy Context"))
+				.ToolTipText(LOCTEXT("CopyContextTooltip", "Copy just the widget context, without a question."))
+				.IsEnabled(this, &SAIWidgetInspectorPanel::HasSelection)
+				.OnClicked(this, &SAIWidgetInspectorPanel::HandleCopyContextClicked)
+			]
+		]
+
+		// 못 쓰는 Provider를 골랐을 때 이유를 여기 띄운다. 회색 버튼만 보고
+		// 툴팁을 찾아 마우스를 올려 볼 사람은 드물다.
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(0.0f, 0.0f, 0.0f, 6.0f)
+		[
+			SNew(SBorder)
+			.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+			.Visibility(this, &SAIWidgetInspectorPanel::GetProviderWarningVisibility)
+			.Padding(8.0f, 6.0f)
+			[
+				SNew(STextBlock)
+				.Text(this, &SAIWidgetInspectorPanel::GetProviderWarningText)
+				.ColorAndOpacity(FLinearColor(1.0f, 0.72f, 0.35f))
+				.AutoWrapText(true)
+			]
+		]
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(0.0f, 0.0f, 0.0f, 6.0f)
+		[
+			SNew(SBox)
+			.HeightOverride(64.0f)
+			[
+				SAssignNew(QuestionTextBox, SMultiLineEditableTextBox)
+				.HintText(LOCTEXT("QuestionHint", "e.g. why does this button not respond to clicks?"))
+			]
+		]
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Right)
+		[
+			SNew(SHorizontalBox)
+
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(0.0f, 0.0f, 6.0f, 0.0f)
+			[
+				SNew(SButton)
+				.Text(LOCTEXT("RequestChange", "Request Change"))
+				.ToolTipText(LOCTEXT("RequestChangeTooltip", "Send the same context, asking for the change to be made instead of prose."))
+				.IsEnabled(this, &SAIWidgetInspectorPanel::CanSendRequest)
+				.OnClicked(this, &SAIWidgetInspectorPanel::HandleRequestChangeClicked)
+			]
+
+			// 둘 중 하나에 무게를 준다. 같은 모양으로 나란히 두면 무엇이 기본 동작인지
+			// 매번 읽어서 골라야 한다.
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SButton)
+				.ButtonStyle(&FAppStyle::Get().GetWidgetStyle<FButtonStyle>("PrimaryButton"))
+				.TextStyle(&FAppStyle::Get().GetWidgetStyle<FTextBlockStyle>("PrimaryButtonText"))
+				.Text(this, &SAIWidgetInspectorPanel::GetAskButtonText)
+				.ToolTipText(LOCTEXT("AskAITooltip", "Send the widget context and your question to the provider."))
+				.IsEnabled(this, &SAIWidgetInspectorPanel::CanSendRequest)
+				.OnClicked(this, &SAIWidgetInspectorPanel::HandleAskAIClicked)
+			]
+		]
+
+		// 아래는 답을 손으로 받아 오는 Provider에만 쓰인다. 대화형에서는 통째로 접힌다.
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(0.0f, 10.0f, 0.0f, 0.0f)
 		[
 			SNew(SVerticalBox)
-
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(0.0f, 2.0f, 0.0f, 4.0f)
-			[
-				SNew(SHorizontalBox)
-
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.Padding(0.0f, 0.0f, 6.0f, 0.0f)
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("LabelProvider", "Provider"))
-					.ColorAndOpacity(FSlateColor::UseSubduedForeground())
-				]
-
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SAssignNew(ProviderComboBox, SComboBox<FProviderPtr>)
-					.OptionsSource(&Providers)
-					.InitiallySelectedItem(ActiveProvider)
-					.OnGenerateWidget(this, &SAIWidgetInspectorPanel::HandleGenerateProviderItem)
-					.OnSelectionChanged(this, &SAIWidgetInspectorPanel::HandleProviderChanged)
-					.ToolTipText(this, &SAIWidgetInspectorPanel::GetActiveProviderTooltip)
-					[
-						SNew(STextBlock)
-						.Text(this, &SAIWidgetInspectorPanel::GetActiveProviderText)
-					]
-				]
-
-				+ SHorizontalBox::Slot()
-				.FillWidth(1.0f)
-				[
-					SNullWidget::NullWidget
-				]
-
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SNew(SButton)
-					.Text(LOCTEXT("CopyContext", "Copy Context"))
-					.ToolTipText(LOCTEXT("CopyContextTooltip", "Copy just the widget context, without a question."))
-					.IsEnabled(this, &SAIWidgetInspectorPanel::HasSelection)
-					.OnClicked(this, &SAIWidgetInspectorPanel::HandleCopyContextClicked)
-				]
-			]
-
-			// 못 쓰는 Provider를 골랐을 때 이유를 여기 띄운다. 회색 버튼만 보고
-			// 툴팁을 찾아 마우스를 올려 볼 사람은 드물다.
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(0.0f, 2.0f, 0.0f, 4.0f)
-			[
-				SNew(SBorder)
-				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
-				.Visibility(this, &SAIWidgetInspectorPanel::GetProviderWarningVisibility)
-				.Padding(6.0f, 4.0f)
-				[
-					SNew(STextBlock)
-					.Text(this, &SAIWidgetInspectorPanel::GetProviderWarningText)
-					.ColorAndOpacity(FLinearColor(1.0f, 0.72f, 0.35f))
-					.AutoWrapText(true)
-				]
-			]
+			.Visibility(this, &SAIWidgetInspectorPanel::GetResponseAreaVisibility)
 
 			+ SVerticalBox::Slot()
 			.AutoHeight()
 			.Padding(0.0f, 0.0f, 0.0f, 4.0f)
 			[
-				SNew(SBox)
-				.HeightOverride(56.0f)
-				[
-					SAssignNew(QuestionTextBox, SMultiLineEditableTextBox)
-					.HintText(LOCTEXT("QuestionHint", "e.g. why does this button not respond to clicks?"))
-				]
-			]
-
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.HAlign(HAlign_Right)
-			[
-				SNew(SHorizontalBox)
-
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(0.0f, 0.0f, 4.0f, 0.0f)
-				[
-					SNew(SButton)
-					.Text(this, &SAIWidgetInspectorPanel::GetAskButtonText)
-					.ToolTipText(LOCTEXT("AskAITooltip", "Send the widget context and your question to the provider."))
-					.IsEnabled(this, &SAIWidgetInspectorPanel::CanSendRequest)
-					.OnClicked(this, &SAIWidgetInspectorPanel::HandleAskAIClicked)
-				]
-
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SNew(SButton)
-					.Text(LOCTEXT("RequestChange", "Request Change"))
-					.ToolTipText(LOCTEXT("RequestChangeTooltip", "Send the same context, asking for an executable change instead of prose."))
-					.IsEnabled(this, &SAIWidgetInspectorPanel::CanSendRequest)
-					.OnClicked(this, &SAIWidgetInspectorPanel::HandleRequestChangeClicked)
-				]
-			]
-
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(0.0f, 6.0f, 0.0f, 2.0f)
-			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("ResponseLabel", "AI Response - with the Clipboard provider, paste the assistant's reply here."))
+				.Text(LOCTEXT("ResponseLabel", "AI Response"))
 				.ColorAndOpacity(FSlateColor::UseSubduedForeground())
-				.AutoWrapText(true)
 			]
 
 			+ SVerticalBox::Slot()
@@ -1464,12 +1475,13 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildAskAISection()
 				.HeightOverride(120.0f)
 				[
 					SAssignNew(ResponseTextBox, SMultiLineEditableTextBox)
+					.HintText(LOCTEXT("ResponseHint", "Paste the assistant's reply here, then press Parse Change."))
 				]
 			]
 
 			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+			.Padding(0.0f, 6.0f, 0.0f, 0.0f)
 			.HAlign(HAlign_Right)
 			[
 				SNew(SButton)
@@ -1478,18 +1490,13 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildAskAISection()
 				.IsEnabled(this, &SAIWidgetInspectorPanel::CanParseChange)
 				.OnClicked(this, &SAIWidgetInspectorPanel::HandleParseChangeClicked)
 			]
-		];
+		]);
 }
 
 TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildTerminalSection()
 {
-	return SNew(SExpandableArea)
-		.InitiallyCollapsed(false)
-		.AreaTitle(LOCTEXT("SectionTerminal", "CLI Session"))
-		.BodyContent()
-		[
-			SAssignNew(TerminalWidget, SAIWidgetTerminal)
-		];
+	return MakeSection(LOCTEXT("SectionTerminal", "CLI Session"), false,
+		SAssignNew(TerminalWidget, SAIWidgetTerminal));
 }
 
 TSharedRef<SWidget> SAIWidgetInspectorPanel::HandleGenerateProviderItem(FProviderPtr InProvider)
@@ -1537,6 +1544,13 @@ FText SAIWidgetInspectorPanel::GetActiveProviderTooltip() const
 FText SAIWidgetInspectorPanel::GetProviderWarningText() const
 {
 	return ActiveProvider.IsValid() ? ActiveProvider->GetUnavailableReason() : FText::GetEmpty();
+}
+
+EVisibility SAIWidgetInspectorPanel::GetResponseAreaVisibility() const
+{
+	// 대화형은 답이 터미널로 흐르므로 주고받을 칸이 필요 없다.
+	const bool bInteractive = ActiveProvider.IsValid() && ActiveProvider->IsInteractive();
+	return bInteractive ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 EVisibility SAIWidgetInspectorPanel::GetProviderWarningVisibility() const
