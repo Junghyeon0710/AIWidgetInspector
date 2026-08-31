@@ -86,6 +86,18 @@ void SAIWidgetInspectorPanel::Construct(
 	if (Providers.Num() > 0)
 	{
 		ActiveProvider = Providers[0];
+
+		// 쓸 수 있으면 대화형 세션을 기본으로 고른다. 나머지 Provider는 할 수 있는 일이
+		// 좁아서, 위젯을 고쳐 달라고 하면 무엇을 못 하는지부터 설명하는 답이 돌아온다.
+		// 무엇을 고르느냐로 결과가 갈린다는 걸 처음 쓰는 사람이 알 방법이 없다.
+		for (const FProviderPtr& Provider : Providers)
+		{
+			if (Provider.IsValid() && Provider->IsInteractive() && Provider->IsAvailable())
+			{
+				ActiveProvider = Provider;
+				break;
+			}
+		}
 	}
 
 	SelectionChangedHandle = Selection->OnChanged().AddSP(this, &SAIWidgetInspectorPanel::HandleSelectionChanged);
@@ -1601,7 +1613,21 @@ void SAIWidgetInspectorPanel::SendToTerminal(EAIWidgetRequestKind InKind)
 	const FString ContextPath = FPaths::ConvertRelativePathToFull(
 		FPaths::ProjectIntermediateDir() / TEXT("AIWidgetInspector") / TEXT("WidgetContext.md"));
 
-	if (!FFileHelper::SaveStringToFile(BuildCurrentContext(), *ContextPath))
+	// 무엇을 쓸 수 있는지 Context에 같이 적어 준다. 이 안내가 없으면 CLI는 자기가 무엇을
+	// 할 수 있는 자리인지 몰라서, 에디터 Tool의 좁은 목록만 보고 "그건 못 한다"로 답하거나
+	// 반대로 살아 있는 에디터를 두고 파일만 고친다. 둘 다 반쪽짜리다.
+	const FString Capabilities = TEXT(
+		"\n[Where you are]\n"
+		"The Unreal editor is running and you are attached to it. There are two ways to act, and a job often needs both:\n"
+		"- The editor's own tools are on the \"unreal\" MCP server. Start with list_toolsets, then describe_toolset. "
+		"The widget toolset changes the selected widget in the running editor and can save the asset.\n"
+		"- The working directory is the project root, so the source and the .uproject are right here. "
+		"Write or edit C++, add a module dependency, fix the bug, whatever the request actually needs.\n"
+		"Do the whole job. If it needs a C++ class the editor tools cannot make, write the files. "
+		"If it only takes effect after a compile and an editor restart, say so at the end, "
+		"along with anything left to do by hand.\n");
+
+	if (!FFileHelper::SaveStringToFile(BuildCurrentContext() + Capabilities, *ContextPath))
 	{
 		UE_LOG(LogAIWidgetInspector, Warning, TEXT("Could not write the widget context file: %s"), *ContextPath);
 
@@ -1621,7 +1647,7 @@ void SAIWidgetInspectorPanel::SendToTerminal(EAIWidgetRequestKind InKind)
 	// CLI는 MCP Tool로 직접 고칠 수 있기 때문이다.
 	const FString Instruction = (InKind == EAIWidgetRequestKind::Question)
 		? TEXT("answer this about it")
-		: TEXT("make this change to it in the editor");
+		: TEXT("carry this out");
 
 	const FString Prompt = FString::Printf(
 		TEXT("Read \"%s\" for the Unreal widget I have selected, then %s: %s"),

@@ -322,6 +322,14 @@ void FAICliProvider::SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetR
 		// 미리 허용해 두지 않으면 -p 모드에서 승인을 물을 데가 없어 그냥 멈춘다.
 		// 열어 주는 것은 에디터 MCP의 세 진입점뿐이고, 그 안에서 부를 수 있는 것은
 		// 우리 툴세트가 내놓은 다섯 개다.
+		//
+		// 그래서 이 Provider는 코드를 읽지도 쓰지도 못한다. C++ 클래스를 만들어 달라거나
+		// 버그를 고쳐 달라고 하면 무엇을 못 하는지 설명하는 답이 돌아온다. 게다가 원샷이라
+		// 에디터 프로세스의 작업 디렉터리를 물려받아, 파일을 열 수 있었더라도 프로젝트가
+		// 아니라 엔진 Binaries 폴더에서 찾는다.
+		//
+		// 그런 일은 Terminal Provider가 맡는다. 대화형이라 승인을 물을 자리가 있어서
+		// 도구를 좁힐 이유가 없고, 셸을 프로젝트로 옮겨 놓고 CLI를 띄운다.
 		ArgumentList.Add(TEXT("--allowedTools"));
 		ArgumentList.Add(FString::Printf(
 			TEXT("mcp__%s__list_toolsets,mcp__%s__describe_toolset,mcp__%s__call_tool"),

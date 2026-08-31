@@ -118,7 +118,9 @@ void FAIWidgetInspectorModule::StartupModule()
 		FAICliProvider::FConfig ClaudeMcpConfig;
 		ClaudeMcpConfig.Name = TEXT("ClaudeCliMcp");
 		ClaudeMcpConfig.DisplayName = LOCTEXT("ClaudeCliMcp", "Claude Code (Unreal MCP)");
-		ClaudeMcpConfig.Description = LOCTEXT("ClaudeCliMcpDesc", "The claude CLI connects to the editor over MCP and changes widgets itself.");
+		ClaudeMcpConfig.Description = LOCTEXT("ClaudeCliMcpDesc",
+			"One shot. Changes the selected widget through the editor's tools and nothing else -- it cannot read or write code. "
+			"For anything that needs both, use the Terminal provider.");
 		ClaudeMcpConfig.Executable = TEXT("claude");
 		ClaudeMcpConfig.InstallCommand = TEXT("npm install -g @anthropic-ai/claude-code");
 		ClaudeMcpConfig.Arguments = { TEXT("-p") };
