@@ -100,6 +100,15 @@ public:
 	 */
 	virtual bool UsesEditorTools() const { return false; }
 
+	/**
+	 * 이 Provider가 살아 있는 대화형 세션을 쓰는지.
+	 *
+	 * true면 패널이 SendRequest를 부르지 않고 프롬프트를 터미널로 직접 넘긴다. 요청 하나에
+	 * 응답 하나라는 SendRequest의 모양이 대화형 세션에 맞지 않기 때문이다. 답이 언제
+	 * 끝나는지 알 수 없고, 중간에 사용자가 승인하거나 되물을 수도 있다.
+	 */
+	virtual bool IsInteractive() const { return false; }
+
 	/** 요청을 보낸다. 완료되면 InOnComplete를 게임 스레드에서 호출한다. */
 	virtual void SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetResponse InOnComplete) = 0;
 };

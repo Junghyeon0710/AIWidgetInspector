@@ -3,6 +3,7 @@
 #include "AIWidgetInspectorModule.h"
 
 #include "AI/AICliProvider.h"
+#include "AI/AITerminalProvider.h"
 #include "BaseWidgetBlueprint.h"
 #include "Mcp/AIWidgetInspectorToolset.h"
 
@@ -124,6 +125,10 @@ void FAIWidgetInspectorModule::StartupModule()
 		ClaudeMcpConfig.bUseUnrealMcp = true;
 		Providers.Add(MakeShared<FAICliProvider>(MoveTemp(ClaudeMcpConfig)));
 	}
+
+	// 패널 안의 터미널로 보내는 길. 위 둘과 달리 프로세스를 새로 띄우지 않고, 이미 떠 있는
+	// 대화형 세션에 프롬프트를 흘려보낸다. 승인을 물으면 사용자가 그 자리에서 답하면 된다.
+	Providers.Add(MakeShared<FAITerminalProvider>());
 
 	{
 		FAICliProvider::FConfig CodexConfig;

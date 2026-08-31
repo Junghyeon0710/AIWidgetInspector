@@ -39,6 +39,12 @@
 			"Enabled": true,
 			"Optional": true,
 			"Description": "Hosts the MCP server an AI CLI connects to. Without it, changes still work by pasting the assistant's JSON reply."
+		},
+		{
+			"Name": "Terminal",
+			"Enabled": true,
+			"Optional": true,
+			"Description": "Runs the AI CLI inside the panel, so you can answer its permission prompts. Without it, the one-shot providers still work."
 		}
 	]
 }

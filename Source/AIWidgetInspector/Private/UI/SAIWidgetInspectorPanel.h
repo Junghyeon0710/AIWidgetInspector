@@ -17,6 +17,7 @@ class FAIWidgetSelection;
 class UWidget;
 struct FAIWidgetCommand;
 class ITableRow;
+class SAIWidgetTerminal;
 class SMultiLineEditableTextBox;
 class STableViewBase;
 template <typename ItemType> class SListView;
@@ -70,6 +71,7 @@ private:
 	TSharedRef<SWidget> BuildPathList();
 	TSharedRef<SWidget> BuildPreviewSection();
 	TSharedRef<SWidget> BuildAskAISection();
+	TSharedRef<SWidget> BuildTerminalSection();
 	TSharedRef<SWidget> BuildChangePlanSection();
 
 	/** 섹션 하나를 접었다 펼 수 있게 감싼다. 패널이 길어져 아래쪽이 스크롤 밖으로 밀리는 걸 막는다. */
@@ -161,6 +163,14 @@ private:
 	bool CanSendRequest() const;
 	void HandleAIResponse(const FAIWidgetResponse& InResponse);
 	void SendRequest(EAIWidgetRequestKind InKind);
+
+	/**
+	 * Context를 파일로 쓰고, 그 파일을 읽으라는 한 줄을 터미널의 CLI에 보낸다.
+	 *
+	 * Context를 그대로 치지 않는 이유는 두 가지다. 여러 줄이라 TUI가 첫 줄에서 전송해
+	 * 버리고, 길어서 화면을 다 덮는다. 파일로 넘기면 대화에는 질문만 남는다.
+	 */
+	void SendToTerminal(EAIWidgetRequestKind InKind);
 	//~ End AI
 
 	//~ Change plan
@@ -247,6 +257,9 @@ private:
 
 	/** AI 응답 칸. 읽기 전용이 아니다. Clipboard Provider를 쓸 때 여기에 답을 붙여넣는다. */
 	TSharedPtr<SMultiLineEditableTextBox> ResponseTextBox;
+
+	/** 패널 안에서 돌아가는 CLI. Provider가 대화형일 때 여기로 프롬프트가 간다. */
+	TSharedPtr<SAIWidgetTerminal> TerminalWidget;
 
 	/** 응답을 기다리는 동안 중복 전송을 막는다. */
 	bool bRequestInFlight = false;

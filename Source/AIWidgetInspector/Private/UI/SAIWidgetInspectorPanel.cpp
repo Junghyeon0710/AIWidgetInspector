@@ -15,6 +15,7 @@
 #include "Inspection/AIWidgetInspector.h"
 #include "Inspection/AIWidgetSelection.h"
 #include "Inspection/AIWidgetSourceResolver.h"
+#include "UI/SAIWidgetTerminal.h"
 #include "WidgetPicking/AIWidgetHighlighter.h"
 #include "WidgetPicking/AIWidgetPicker.h"
 
@@ -23,6 +24,7 @@
 #include "Components/Widget.h"
 #include "Layout/WidgetPath.h"
 #include "Misc/Attribute.h"
+#include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "SEnumCombo.h"
 #include "SourceCodeNavigation.h"
@@ -145,6 +147,12 @@ void SAIWidgetInspectorPanel::Construct(
 			.Padding(8.0f, 0.0f, 8.0f, 2.0f)
 			[
 				BuildAskAISection()
+			]
+
+			+ SScrollBox::Slot()
+			.Padding(8.0f, 0.0f, 8.0f, 2.0f)
+			[
+				BuildTerminalSection()
 			]
 
 			+ SScrollBox::Slot()
@@ -1454,6 +1462,17 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildAskAISection()
 		];
 }
 
+TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildTerminalSection()
+{
+	return SNew(SExpandableArea)
+		.InitiallyCollapsed(false)
+		.AreaTitle(LOCTEXT("SectionTerminal", "CLI Session"))
+		.BodyContent()
+		[
+			SAssignNew(TerminalWidget, SAIWidgetTerminal)
+		];
+}
+
 TSharedRef<SWidget> SAIWidgetInspectorPanel::HandleGenerateProviderItem(FProviderPtr InProvider)
 {
 	// 이름은 변하지 않지만 설명은 변한다. CLI를 찾았는지 여부가 거기 들어가는데,
@@ -1552,6 +1571,14 @@ void SAIWidgetInspectorPanel::SendRequest(EAIWidgetRequestKind InKind)
 		return;
 	}
 
+	// 대화형 Provider는 응답을 돌려주지 않는다. 답은 터미널에 흐르고, 끝나는 시점도
+	// 우리가 알 수 없다. 그래서 요청/응답 경로를 타지 않고 곧장 터미널로 넘긴다.
+	if (ActiveProvider->IsInteractive())
+	{
+		SendToTerminal(InKind);
+		return;
+	}
+
 	FAIWidgetRequest Request;
 	Request.Kind = InKind;
 	Request.Context = BuildCurrentContext();
@@ -1562,6 +1589,53 @@ void SAIWidgetInspectorPanel::SendRequest(EAIWidgetRequestKind InKind)
 	ClearChangePlan();
 
 	ActiveProvider->SendRequest(Request, FOnAIWidgetResponse::CreateSP(this, &SAIWidgetInspectorPanel::HandleAIResponse));
+}
+
+void SAIWidgetInspectorPanel::SendToTerminal(EAIWidgetRequestKind InKind)
+{
+	if (!TerminalWidget.IsValid())
+	{
+		return;
+	}
+
+	const FString ContextPath = FPaths::ConvertRelativePathToFull(
+		FPaths::ProjectIntermediateDir() / TEXT("AIWidgetInspector") / TEXT("WidgetContext.md"));
+
+	if (!FFileHelper::SaveStringToFile(BuildCurrentContext(), *ContextPath))
+	{
+		UE_LOG(LogAIWidgetInspector, Warning, TEXT("Could not write the widget context file: %s"), *ContextPath);
+
+		if (ResponseTextBox.IsValid())
+		{
+			ResponseTextBox->SetText(FText::Format(
+				LOCTEXT("ContextWriteFailed", "Could not write the widget context to {0}."),
+				FText::FromString(ContextPath)));
+		}
+		return;
+	}
+
+	const FString Question = QuestionTextBox->GetText().ToString();
+
+	// 답만 받을 것인지 고쳐 달라고 할 것인지를 문장으로 갈라 준다. 대화형 세션에는
+	// 원샷 Provider가 쓰던 응답 스키마를 붙이지 않는다. JSON을 파싱할 사람이 없고,
+	// CLI는 MCP Tool로 직접 고칠 수 있기 때문이다.
+	const FString Instruction = (InKind == EAIWidgetRequestKind::Question)
+		? TEXT("answer this about it")
+		: TEXT("make this change to it in the editor");
+
+	const FString Prompt = FString::Printf(
+		TEXT("Read \"%s\" for the Unreal widget I have selected, then %s: %s"),
+		*ContextPath,
+		*Instruction,
+		*Question);
+
+	TerminalWidget->SendPrompt(Prompt);
+
+	if (ResponseTextBox.IsValid())
+	{
+		ResponseTextBox->SetText(LOCTEXT("SentToTerminal",
+			"Sent to the CLI Session below. The reply appears there, and you answer its permission prompts with Enter."));
+	}
 }
 
 FReply SAIWidgetInspectorPanel::HandleAskAIClicked()
