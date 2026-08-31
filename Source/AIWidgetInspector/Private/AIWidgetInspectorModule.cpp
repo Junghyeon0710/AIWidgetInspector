@@ -3,6 +3,7 @@
 #include "AIWidgetInspectorModule.h"
 
 #include "AI/AICliProvider.h"
+#include "BaseWidgetBlueprint.h"
 #include "Mcp/AIWidgetInspectorToolset.h"
 
 #include "Misc/CoreDelegates.h"
@@ -51,6 +52,16 @@ FAIWidgetInspectorModule& FAIWidgetInspectorModule::Get()
 bool FAIWidgetInspectorModule::IsAvailable()
 {
 	return FModuleManager::Get().IsModuleLoaded(AIWidgetInspector::ModuleName);
+}
+
+void FAIWidgetInspectorModule::SetLastAppliedBlueprint(UBaseWidgetBlueprint* InBlueprint)
+{
+	LastAppliedBlueprint = InBlueprint;
+}
+
+UBaseWidgetBlueprint* FAIWidgetInspectorModule::GetLastAppliedBlueprint() const
+{
+	return LastAppliedBlueprint.Get();
 }
 
 void FAIWidgetInspectorModule::StartupModule()

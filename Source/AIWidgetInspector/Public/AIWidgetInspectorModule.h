@@ -57,9 +57,12 @@ public:
 	 * 에셋 변경은 Blueprint를 재컴파일하고, 그러면 화면의 Widget 인스턴스가 파괴되면서
 	 * 선택이 죽는다. 선택을 거쳐 에셋을 다시 찾는 길이 그 순간 끊기므로, 저장할 때 쓸
 	 * 손잡이를 여기 남겨 둔다.
+	 *
+	 * UBaseWidgetBlueprint는 private 의존인 UnrealEd에 있어 이 헤더에서는 전방 선언만 한다.
+	 * 그래서 정의는 .cpp에 둔다.
 	 */
-	void SetLastAppliedBlueprint(UBaseWidgetBlueprint* InBlueprint) { LastAppliedBlueprint = InBlueprint; }
-	UBaseWidgetBlueprint* GetLastAppliedBlueprint() const { return LastAppliedBlueprint.Get(); }
+	void SetLastAppliedBlueprint(UBaseWidgetBlueprint* InBlueprint);
+	UBaseWidgetBlueprint* GetLastAppliedBlueprint() const;
 
 private:
 	void RegisterMenus();
