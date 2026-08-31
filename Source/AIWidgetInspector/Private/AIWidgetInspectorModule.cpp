@@ -2,7 +2,6 @@
 
 #include "AIWidgetInspectorModule.h"
 
-#include "AI/AICliProvider.h"
 #include "AI/AITerminalProvider.h"
 #include "BaseWidgetBlueprint.h"
 #include "Mcp/AIWidgetInspectorToolset.h"
@@ -83,69 +82,17 @@ void FAIWidgetInspectorModule::StartupModule()
 	// Clipboard가 기본값이다. 아무것도 설치돼 있지 않아도 동작하기 때문이다.
 	Providers.Add(MakeShared<FAIClipboardProvider>());
 
-	// CLI Provider는 설치돼 있지 않으면 목록에는 남지만 전송 버튼이 꺼진다.
-	// 없는 걸 감추는 것보다, 왜 못 쓰는지 툴팁으로 보여주는 편이 낫다.
-	{
-		FAICliProvider::FConfig ClaudeConfig;
-		ClaudeConfig.Name = TEXT("ClaudeCli");
-		ClaudeConfig.DisplayName = LOCTEXT("ClaudeCli", "Claude Code");
-		ClaudeConfig.Description = LOCTEXT("ClaudeCliDesc", "Pipes the prompt to the claude CLI and shows the reply.");
-		ClaudeConfig.Executable = TEXT("claude");
-		ClaudeConfig.InstallCommand = TEXT("npm install -g @anthropic-ai/claude-code");
-		// -p 는 대화형 세션 대신 답만 찍고 끝내라는 뜻이다.
-		//
-		// 나머지 둘은 코딩 에이전트가 아니라 응답기로 쓰기 위한 것이다. 그냥 부르면
-		// 프로젝트 디렉터리에서 파일을 뒤지며 스스로 고치려 들고, 정작 우리가 기다리는
-		// JSON 대신 "직접 이렇게 하세요" 같은 답을 돌려준다. 프롬프트에 필요한 정보는
-		// 이미 다 들어 있으므로 도구는 필요 없다.
-		//
-		// --bare 는 쓰지 않는다. OAuth와 키체인을 읽지 않고 ANTHROPIC_API_KEY만 보기
-		// 때문에, CLI로 로그인해 둔 사용자의 인증이 오히려 깨진다.
-		ClaudeConfig.Arguments =
-		{
-			TEXT("-p"),
-			TEXT("--restricted"),
-			TEXT("--disallowedTools"),
-			TEXT("Read,Edit,Write,Glob,Grep,Task,WebSearch,WebFetch,NotebookEdit"),
-		};
-		Providers.Add(MakeShared<FAICliProvider>(MoveTemp(ClaudeConfig)));
-	}
-
-	// 같은 CLI를 두 번 등록한다. 하나는 답을 받아 우리가 적용하는 방식,
-	// 하나는 AI가 에디터 Tool을 직접 부르는 방식이다. 어느 쪽인지 목록에서 보이는 편이
-	// 인자 하나로 몰래 갈리는 것보다 낫다.
-	{
-		FAICliProvider::FConfig ClaudeMcpConfig;
-		ClaudeMcpConfig.Name = TEXT("ClaudeCliMcp");
-		ClaudeMcpConfig.DisplayName = LOCTEXT("ClaudeCliMcp", "Claude Code (Unreal MCP)");
-		ClaudeMcpConfig.Description = LOCTEXT("ClaudeCliMcpDesc",
-			"One shot. Changes the selected widget through the editor's tools and nothing else -- it cannot read or write code. "
-			"For anything that needs both, use the Terminal provider.");
-		ClaudeMcpConfig.Executable = TEXT("claude");
-		ClaudeMcpConfig.InstallCommand = TEXT("npm install -g @anthropic-ai/claude-code");
-		ClaudeMcpConfig.Arguments = { TEXT("-p") };
-		ClaudeMcpConfig.bUseUnrealMcp = true;
-		Providers.Add(MakeShared<FAICliProvider>(MoveTemp(ClaudeMcpConfig)));
-	}
-
-	// 패널 안의 터미널로 보내는 길. 위 둘과 달리 프로세스를 새로 띄우지 않고, 이미 떠 있는
-	// 대화형 세션에 프롬프트를 흘려보낸다. 승인을 물으면 사용자가 그 자리에서 답하면 된다.
+	// CLI는 패널 안의 터미널에서만 돈다.
+	//
+	// 예전에는 프롬프트를 stdin으로 밀어 넣고 답만 받아 오는 원샷 Provider도 함께 올렸다.
+	// 그쪽은 승인을 물을 자리가 없어 도구를 미리 좁혀야 했고, 그래서 코드를 읽지도 쓰지도
+	// 못했다. 위젯을 고쳐 달라고 하면 무엇을 못 하는지 설명하는 답이 돌아왔다.
+	// 같은 이름이 목록에 여러 개 있는데 할 수 있는 일이 서로 다르면, 고르기 전에는
+	// 무엇이 다른지 알 수가 없다.
 	//
 	// CLI마다 하나씩 올린다. 설정 어딘가에 숨겨 두면 지금 무엇과 이야기하고 있는지 알 수 없다.
 	Providers.Add(MakeShared<FAITerminalProvider>(EAITerminalCli::Claude));
 	Providers.Add(MakeShared<FAITerminalProvider>(EAITerminalCli::Codex));
-
-	{
-		FAICliProvider::FConfig CodexConfig;
-		CodexConfig.Name = TEXT("CodexCli");
-		CodexConfig.DisplayName = LOCTEXT("CodexCli", "Codex");
-		CodexConfig.Description = LOCTEXT("CodexCliDesc", "Pipes the prompt to the codex CLI and shows the reply.");
-		CodexConfig.Executable = TEXT("codex");
-		CodexConfig.InstallCommand = TEXT("npm install -g @openai/codex");
-		// "-" 는 프롬프트를 stdin에서 읽으라는 뜻이다.
-		CodexConfig.Arguments = { TEXT("exec"), TEXT("-") };
-		Providers.Add(MakeShared<FAICliProvider>(MoveTemp(CodexConfig)));
-	}
 
 	// 어떤 Provider가 왜 못 쓰이는지는 로그에 남겨 둔다.
 	// 회색으로 비활성화된 버튼만 보고 원인을 짚기는 어렵기 때문이다.

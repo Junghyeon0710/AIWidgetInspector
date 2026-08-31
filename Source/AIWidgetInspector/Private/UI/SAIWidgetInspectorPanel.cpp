@@ -252,7 +252,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::BuildHeader()
 		[
 			SNew(STextBlock)
 			.Text(this, &SAIWidgetInspectorPanel::GetStatusText)
-			.ColorAndOpacity(FSlateColor::UseSubduedForeground())
+			.ColorAndOpacity(this, &SAIWidgetInspectorPanel::GetStatusColor)
 			.AutoWrapText(true)
 		];
 }
@@ -265,7 +265,9 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::MakeSection(const FText& InTitle, b
 		.InitiallyCollapsed(bInInitiallyCollapsed)
 		.AreaTitle(InTitle)
 		.AreaTitleFont(FAppStyle::Get().GetFontStyle("DetailsView.CategoryFontStyle"))
-		.Padding(FMargin(0.0f, 4.0f, 0.0f, 8.0f))
+		// 본문을 제목보다 안쪽에서 시작하게 한다. 같은 선에서 시작하면 어디까지가 이 섹션의
+		// 내용인지 접기 전에는 알 수 없다.
+		.Padding(FMargin(22.0f, 6.0f, 2.0f, 10.0f))
 		.Visibility(InVisibility)
 		.BodyContent()
 		[
@@ -279,6 +281,7 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::MakeDetailRow(const FText& InLabel,
 
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
+		.Padding(0.0f, 2.0f, 10.0f, 2.0f)
 		[
 			SNew(SBox)
 			.WidthOverride(AIWidgetInspectorPanel::LabelColumnWidth)
@@ -289,12 +292,16 @@ TSharedRef<SWidget> SAIWidgetInspectorPanel::MakeDetailRow(const FText& InLabel,
 			]
 		]
 
+		// 값은 접어서 보여 준다. 에셋 경로나 클래스 이름은 한 줄에 안 들어가는 일이 잦은데,
+		// 잘라 버리면 끝을 보려고 툴팁이 뜨기를 기다려야 한다.
 		+ SHorizontalBox::Slot()
 		.FillWidth(1.0f)
+		.Padding(0.0f, 2.0f, 0.0f, 2.0f)
 		[
 			SNew(STextBlock)
 			.Text(InValue)
 			.ToolTipText(InValue)
+			.AutoWrapText(true)
 		];
 }
 
@@ -734,6 +741,21 @@ FText SAIWidgetInspectorPanel::GetStatusText() const
 		LOCTEXT("StatusSelected", "Step {1} of {0} in the path."),
 		FText::AsNumber(Selection->Num()),
 		FText::AsNumber(Selection->GetSelectedIndex() + 1));
+}
+
+FSlateColor SAIWidgetInspectorPanel::GetStatusColor() const
+{
+	if (Picker->IsInspecting())
+	{
+		return FSlateColor(FLinearColor(0.45f, 0.75f, 1.0f));
+	}
+
+	if (Selection->IsValid() && !Selection->GetSelectedWidget().IsValid())
+	{
+		return FSlateColor(FLinearColor(1.0f, 0.45f, 0.35f));
+	}
+
+	return FSlateColor::UseSubduedForeground();
 }
 
 FText SAIWidgetInspectorPanel::GetSlateTypeText() const

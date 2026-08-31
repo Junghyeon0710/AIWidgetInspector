@@ -97,7 +97,25 @@ private:
 	FString LoadOrCreateSessionId(bool& bOutIsNew) const;
 
 	FReply HandleRestartClicked();
+
+	/**
+	 * 상태줄에 쓸 문장과 색.
+	 *
+	 * 둘을 따로 만들면 분기가 갈라져서, 빨간 글씨에 잘 되고 있다는 문장이 뜨는 날이 온다.
+	 * 한 번에 정한다.
+	 */
+	struct FStatus
+	{
+		FText Text;
+		FSlateColor Color = FSlateColor::UseSubduedForeground();
+	};
+	FStatus GetStatus() const;
+
 	FText GetStatusText() const;
+	FSlateColor GetStatusColor() const;
+
+	/** CLI가 PATH에 있는지. 매 프레임 PATH를 뒤지지 않도록 기억해 둔다. */
+	bool IsCliOnPath() const;
 
 	/** 지금 띄우는 CLI. 패널이 목록에서 고른 것을 넘겨 준다. */
 	EAITerminalCli Cli = EAITerminalCli::Claude;
@@ -161,6 +179,22 @@ private:
 
 	/** 이 패널의 대화 id. 처음 실행할 때 정해져서 에디터를 다시 켜도 유지된다. */
 	FString SessionId;
+
+	/**
+	 * CLI를 PATH에서 찾았는지. 아직 찾아보지 않았으면 비어 있다.
+	 *
+	 * 상태줄은 매 프레임 그려진다. 그때마다 PATH를 훑으면 파일 시스템을 헛되이 두드린다.
+	 * 목록을 만든 뒤에 설치하는 일이 있으므로, 터미널을 새로 만들 때 다시 찾는다.
+	 */
+	mutable TOptional<bool> bCliOnPath;
+
+	/**
+	 * 띄운 CLI가 화면 그리기를 한 번이라도 멈췄는지.
+	 *
+	 * 실행 명령을 넣었다고 CLI가 뜬 것은 아니다. 그 사이에 "돌고 있다"고 말하면, 아직
+	 * 아무것도 받을 수 없는 터미널을 두고 준비됐다고 알리는 셈이다.
+	 */
+	mutable bool bCliSettled = false;
 
 	/** 셸이 끝내 뜨지 않았다. 상태줄에 이유를 남긴다. */
 	bool bShellTimedOut = false;

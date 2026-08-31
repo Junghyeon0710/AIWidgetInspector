@@ -62,7 +62,7 @@ void SAIWidgetTerminal::Construct(const FArguments& InArgs)
 			[
 				SNew(STextBlock)
 				.Text(this, &SAIWidgetTerminal::GetStatusText)
-				.ColorAndOpacity(FSlateColor::UseSubduedForeground())
+				.ColorAndOpacity(this, &SAIWidgetTerminal::GetStatusColor)
 				.AutoWrapText(true)
 			]
 
@@ -80,7 +80,9 @@ void SAIWidgetTerminal::Construct(const FArguments& InArgs)
 		.AutoHeight()
 		[
 			SNew(SBox)
-			.HeightOverride(320.0f)
+			// 이제 일은 대부분 여기서 벌어진다. 답과 승인 요청이 모두 이 안을 지나가므로
+			// 다른 섹션만큼만 주면 계속 스크롤하며 읽게 된다.
+			.HeightOverride(420.0f)
 			[
 				SNew(SHorizontalBox)
 
@@ -113,6 +115,10 @@ void SAIWidgetTerminal::BuildTerminal()
 		.ExternalScrollbar(TerminalScrollBar));
 
 	// 새로 만든 위젯은 아직 그려진 적이 없다. PTY는 첫 페인트에서 생기므로 여기서 다시 센다.
+	// 없어서 못 띄웠던 CLI를 설치하고 Restart를 누르는 흐름이 있다. 그때 다시 찾는다.
+	bCliOnPath.Reset();
+	bCliSettled = false;
+
 	bEverPainted = false;
 	bCliLaunched = false;
 	bCliExited = false;
@@ -336,6 +342,7 @@ void SAIWidgetTerminal::LaunchCli(double InCurrentTime)
 	Terminal->ExecuteCommand(Command);
 
 	bCliLaunched = true;
+	bCliSettled = false;
 	CliLaunchTime = InCurrentTime;
 }
 
@@ -474,48 +481,101 @@ FReply SAIWidgetTerminal::HandleRestartClicked()
 	return FReply::Handled();
 }
 
-FText SAIWidgetTerminal::GetStatusText() const
+bool SAIWidgetTerminal::IsCliOnPath() const
 {
+	if (!bCliOnPath.IsSet())
+	{
+		FString ExecutablePath;
+		bCliOnPath = FAICliProvider::FindExecutable(FAITerminalProvider::GetExecutable(Cli), ExecutablePath);
+	}
+
+	return bCliOnPath.GetValue();
+}
+
+SAIWidgetTerminal::FStatus SAIWidgetTerminal::GetStatus() const
+{
+	const FText CliName = FText::FromString(FAITerminalProvider::GetExecutable(Cli));
+
+	// 색은 세 가지만 쓴다. 손을 써야 하는 것, 기다리면 되는 것, 잘 돌고 있는 것.
+	const FSlateColor Problem(FLinearColor(1.0f, 0.45f, 0.35f));
+	const FSlateColor Waiting = FSlateColor::UseSubduedForeground();
+	const FSlateColor Running(FLinearColor(0.45f, 0.85f, 0.5f));
+
+	// 설치돼 있지 않다는 것부터 말한다. 이건 기다려도 해결되지 않고, 무엇을 해야 하는지도
+	// 분명하다. 아래의 "시작하는 중"이 먼저 뜨면 영영 안 뜨는 것처럼 보인다.
+	if (!IsCliOnPath())
+	{
+		return { FText::Format(
+			LOCTEXT("CliMissing", "{0} was not found on PATH.  Install it, then press Restart CLI."),
+			CliName), Problem };
+	}
+
 	if (bCliExited)
 	{
-		return LOCTEXT("CliExited", "The CLI exited, so this terminal is finished. Press Restart CLI to start another one.");
+		return { FText::Format(
+			LOCTEXT("CliExited", "{0} exited, so this terminal is finished.  Press Restart CLI to start another one."),
+			CliName), Problem };
 	}
 
 	if (bShellTimedOut)
 	{
-		return LOCTEXT("ShellFailed", "The terminal shell did not start. Check the output log.");
+		return { LOCTEXT("ShellFailed", "The terminal did not start.  Check the output log."), Problem };
 	}
 
 	if (!IsSessionRunning())
 	{
-		return LOCTEXT("StartingShell", "Starting the terminal...");
+		return { LOCTEXT("StartingShell", "Starting the terminal..."), Waiting };
 	}
 
 	if (!bCliLaunched)
 	{
-		return LOCTEXT("StartingCli", "Starting the CLI...");
+		return { FText::Format(LOCTEXT("StartingCli", "Starting {0}..."), CliName), Waiting };
 	}
 
 	if (!PendingPrompt.IsEmpty() || bAwaitingSubmit)
 	{
-		return LOCTEXT("WaitingForCli", "Waiting for the CLI to be ready, then sending your question...");
+		return { FText::Format(
+			LOCTEXT("WaitingForCli", "Waiting for {0} to be ready, then sending your question..."),
+			CliName), Waiting };
 	}
 
-	FString ExecutablePath;
-	if (!FAICliProvider::FindExecutable(FAITerminalProvider::GetExecutable(Cli), ExecutablePath))
+	// 명령을 넣은 뒤 화면이 한 번 멎어야 뜬 것으로 본다. 뜨는 동안에는 계속 다시 그린다.
+	if (!bCliSettled)
 	{
-		return FText::Format(
-			LOCTEXT("CliMissing", "'{0}' was not found on PATH. Install it, then press Restart CLI."),
-			FText::FromString(FAITerminalProvider::GetExecutable(Cli)));
+		if (!IsTerminalQuiet(FSlateApplication::Get().GetCurrentTime()))
+		{
+			return { FText::Format(LOCTEXT("StartingCli", "Starting {0}..."), CliName), Waiting };
+		}
+
+		bCliSettled = true;
 	}
+
+	// 여기까지 왔으면 돌고 있다. 남은 것은 무엇을 할 수 있는 상태인지다.
+	//
+	// 에디터 MCP가 붙었는지 여기서 말해 준다. 이게 없으면 CLI는 파일만 고칠 수 있고
+	// 살아 있는 에디터의 위젯은 건드리지 못하는데, 화면만 봐서는 둘을 구분할 수 없다.
+	const FText McpNote = FAICliProvider::IsEditorMcpRunning()
+		? LOCTEXT("McpOn", "Unreal MCP is attached, so it can change the widget in the running editor.")
+		: LOCTEXT("McpOff", "Unreal MCP is off, so it can only read and write files.");
 
 	if (bResumedConversation)
 	{
-		return LOCTEXT("CliReadyResumed",
-			"Picked up the previous conversation. Type here as in any terminal, and answer permission prompts with Enter.");
+		return { FText::Format(
+			LOCTEXT("CliReadyResumed", "{0} is running and picked up the previous conversation.  {1}"),
+			CliName, McpNote), Running };
 	}
 
-	return LOCTEXT("CliReady", "Type here as you would in any terminal. Answer permission prompts with Enter.");
+	return { FText::Format(LOCTEXT("CliReady", "{0} is running.  {1}"), CliName, McpNote), Running };
+}
+
+FText SAIWidgetTerminal::GetStatusText() const
+{
+	return GetStatus().Text;
+}
+
+FSlateColor SAIWidgetTerminal::GetStatusColor() const
+{
+	return GetStatus().Color;
 }
 
 #undef LOCTEXT_NAMESPACE

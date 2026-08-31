@@ -156,6 +156,15 @@ private:
 
 	//~ Provider를 지금 쓸 수 없을 때 패널에 띄우는 안내.
 	FText GetProviderWarningText() const;
+	/**
+	 * 헤더 상태줄의 색.
+	 *
+	 * Inspect Mode는 클릭의 뜻이 달라지는 상태다. 회색 한 줄로만 알리면, 켜 두고도 모른 채
+	 * 위젯을 집게 된다. 선택한 위젯이 사라진 것도 지금 보고 있는 값이 옛것이라는 뜻이라
+	 * 눈에 띄어야 한다.
+	 */
+	FSlateColor GetStatusColor() const;
+
 	EVisibility GetProviderWarningVisibility() const;
 
 	/**
