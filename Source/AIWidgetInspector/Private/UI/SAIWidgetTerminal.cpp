@@ -500,6 +500,7 @@ SAIWidgetTerminal::FStatus SAIWidgetTerminal::GetStatus() const
 	const FSlateColor Problem(FLinearColor(1.0f, 0.45f, 0.35f));
 	const FSlateColor Waiting = FSlateColor::UseSubduedForeground();
 	const FSlateColor Running(FLinearColor(0.45f, 0.85f, 0.5f));
+	const FSlateColor Caution(FLinearColor(1.0f, 0.78f, 0.35f));
 
 	// 설치돼 있지 않다는 것부터 말한다. 이건 기다려도 해결되지 않고, 무엇을 해야 하는지도
 	// 분명하다. 아래의 "시작하는 중"이 먼저 뜨면 영영 안 뜨는 것처럼 보인다.
@@ -554,18 +555,23 @@ SAIWidgetTerminal::FStatus SAIWidgetTerminal::GetStatus() const
 	//
 	// 에디터 MCP가 붙었는지 여기서 말해 준다. 이게 없으면 CLI는 파일만 고칠 수 있고
 	// 살아 있는 에디터의 위젯은 건드리지 못하는데, 화면만 봐서는 둘을 구분할 수 없다.
-	const FText McpNote = FAICliProvider::IsEditorMcpRunning()
+	// MCP가 없어도 CLI는 돈다. 다만 이 패널을 쓰는 이유가 대개 "고른 위젯을 고쳐 줘"인데,
+	// 그건 못 하는 상태다. 초록으로 두면 다 잘 되고 있다고 읽힌다.
+	const bool bMcpAttached = FAICliProvider::IsEditorMcpRunning();
+	const FText McpNote = bMcpAttached
 		? LOCTEXT("McpOn", "Unreal MCP is attached, so it can change the widget in the running editor.")
-		: LOCTEXT("McpOff", "Unreal MCP is off, so it can only read and write files.");
+		: LOCTEXT("McpOff", "Unreal MCP is off, so it can only read and write files.  Turn on Auto Start Server under Project Settings > Plugins > Model Context Protocol, then restart the editor.");
+
+	const FSlateColor ReadyColor = bMcpAttached ? Running : Caution;
 
 	if (bResumedConversation)
 	{
 		return { FText::Format(
 			LOCTEXT("CliReadyResumed", "{0} is running and picked up the previous conversation.  {1}"),
-			CliName, McpNote), Running };
+			CliName, McpNote), ReadyColor };
 	}
 
-	return { FText::Format(LOCTEXT("CliReady", "{0} is running.  {1}"), CliName, McpNote), Running };
+	return { FText::Format(LOCTEXT("CliReady", "{0} is running.  {1}"), CliName, McpNote), ReadyColor };
 }
 
 FText SAIWidgetTerminal::GetStatusText() const

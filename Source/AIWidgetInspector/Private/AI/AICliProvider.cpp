@@ -2,6 +2,9 @@
 
 #include "AI/AICliProvider.h"
 
+#include "IModelContextProtocolModule.h"
+#include "ModelContextProtocolServer.h"
+
 #include "AIWidgetInspectorLog.h"
 
 #include "Async/Async.h"
@@ -102,14 +105,44 @@ bool FAICliProvider::FindExecutable(const FString& InExecutableName, FString& Ou
 FString FAICliProvider::GetEditorMcpUrl()
 {
 	// 포트와 경로는 프로젝트별 설정이라 하드코딩하면 사용자가 바꿔 놓았을 때 조용히 어긋난다.
+	//
+	// 떠 있으면 설정값이 아니라 실제로 잡은 포트를 쓴다. 둘은 다를 수 있고, 그때 설정값을
+	// 넘기면 CLI가 아무것도 없는 포트로 붙으러 간다.
+	uint32 Port = UE::ModelContextProtocol::GetServerPortNumber();
+	if (IModelContextProtocolModule* Module = IModelContextProtocolModule::Get())
+	{
+		if (const FModelContextProtocolServer* Server = Module->GetServer())
+		{
+			if (Server->IsServerRunning())
+			{
+				Port = Server->GetServerPort();
+			}
+		}
+	}
+
 	return FString::Printf(TEXT("http://127.0.0.1:%u%s"),
-		UE::ModelContextProtocol::GetServerPortNumber(),
+		Port,
 		*UE::ModelContextProtocol::GetServerUrlPath());
 }
 
 bool FAICliProvider::IsEditorMcpRunning()
 {
-	return UE::ModelContextProtocol::ShouldAutoStartServer();
+	// 설정이 아니라 지금 떠 있는지를 본다.
+	//
+	// ShouldAutoStartServer()는 "자동으로 켜도록 해 뒀는가"일 뿐이다. 포트가 이미 잡혀
+	// 있어서 서버가 뜨지 못했어도 참이 된다. 그 값을 믿으면 붙지도 않은 MCP를 붙었다고
+	// 알리게 되고, 사용자는 위젯이 왜 안 바뀌는지를 엉뚱한 데서 찾는다.
+	//
+	// 플러그인이 꺼져 있으면 모듈 자체가 없다. 그때는 없는 것으로 본다.
+	if (IModelContextProtocolModule* Module = IModelContextProtocolModule::Get())
+	{
+		if (const FModelContextProtocolServer* Server = Module->GetServer())
+		{
+			return Server->IsServerRunning();
+		}
+	}
+
+	return false;
 }
 
 FString FAICliProvider::WriteMcpConfigFile(const FString& InServerName)

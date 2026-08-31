@@ -23,6 +23,9 @@ public class AIWidgetInspector : ModuleRules
 				"ApplicationCore",
 				"InputCore",
 				"Json",
+				// 설정만 읽는 Engine 쪽과 달리, 이쪽에는 서버 인스턴스가 있다. 자동 시작이
+				// 켜져 있는지가 아니라 지금 떠 있는지를 물어보려면 필요하다.
+				"ModelContextProtocol",
 				"ModelContextProtocolEngine",
 				"ToolsetRegistry",
 				"Projects",
