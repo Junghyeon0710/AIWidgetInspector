@@ -6,22 +6,46 @@
 
 #define LOCTEXT_NAMESPACE "FAITerminalProvider"
 
+const TCHAR* FAITerminalProvider::GetExecutable(EAITerminalCli InCli)
+{
+	return (InCli == EAITerminalCli::Codex) ? TEXT("codex") : TEXT("claude");
+}
+
+const TCHAR* FAITerminalProvider::GetInstallCommand(EAITerminalCli InCli)
+{
+	return (InCli == EAITerminalCli::Codex)
+		? TEXT("npm install -g @openai/codex")
+		: TEXT("npm install -g @anthropic-ai/claude-code");
+}
+
+FName FAITerminalProvider::GetProviderName() const
+{
+	return (Cli == EAITerminalCli::Codex) ? TEXT("CodexTerminal") : TEXT("ClaudeTerminal");
+}
+
 FText FAITerminalProvider::GetDisplayName() const
 {
-	return LOCTEXT("DisplayName", "Claude Code (Terminal)");
+	return (Cli == EAITerminalCli::Codex)
+		? LOCTEXT("DisplayNameCodex", "Codex (Terminal)")
+		: LOCTEXT("DisplayNameClaude", "Claude Code (Terminal)");
 }
 
 FText FAITerminalProvider::GetDescription() const
 {
+	const FText ExecutableName = FText::FromString(GetExecutable(Cli));
+
 	FString ExecutablePath;
 	if (FindExecutablePath(ExecutablePath))
 	{
 		return FText::Format(
-			LOCTEXT("DescriptionFound", "Runs claude in the CLI Session below, so you can answer its questions.  ({0})"),
+			LOCTEXT("DescriptionFound", "Runs {0} in the CLI Session below, so you can answer its questions.  ({1})"),
+			ExecutableName,
 			FText::FromString(ExecutablePath));
 	}
 
-	return LOCTEXT("DescriptionMissing", "Runs claude in the CLI Session below.  'claude' was not found on PATH.");
+	return FText::Format(
+		LOCTEXT("DescriptionMissing", "Runs {0} in the CLI Session below.  '{0}' was not found on PATH."),
+		ExecutableName);
 }
 
 bool FAITerminalProvider::IsAvailable() const
@@ -37,8 +61,10 @@ FText FAITerminalProvider::GetUnavailableReason() const
 		return FText::GetEmpty();
 	}
 
-	return LOCTEXT("MissingCli",
-		"claude is not installed.  Run  npm install -g @anthropic-ai/claude-code  in a terminal, then press Restart CLI below.");
+	return FText::Format(
+		LOCTEXT("MissingCli", "{0} is not installed.  Run  {1}  in a terminal, then press Restart CLI below."),
+		FText::FromString(GetExecutable(Cli)),
+		FText::FromString(GetInstallCommand(Cli)));
 }
 
 void FAITerminalProvider::SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetResponse InOnComplete)
@@ -50,9 +76,9 @@ void FAITerminalProvider::SendRequest(const FAIWidgetRequest& InRequest, FOnAIWi
 		"This provider talks to the CLI Session in the panel. Open the CLI Session section and try again.")));
 }
 
-bool FAITerminalProvider::FindExecutablePath(FString& OutPath)
+bool FAITerminalProvider::FindExecutablePath(FString& OutPath) const
 {
-	return FAICliProvider::FindExecutable(TEXT("claude"), OutPath);
+	return FAICliProvider::FindExecutable(GetExecutable(Cli), OutPath);
 }
 
 #undef LOCTEXT_NAMESPACE

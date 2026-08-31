@@ -61,6 +61,19 @@ struct FAIWidgetResponse
 DECLARE_DELEGATE_OneParam(FOnAIWidgetResponse, const FAIWidgetResponse& /*Response*/);
 
 /**
+ * 패널의 터미널에 띄울 수 있는 CLI.
+ *
+ * 실행 파일 이름만 다른 것이 아니라, 세션을 이어받는 방법과 MCP를 물리는 방법이 서로 다르다.
+ * claude는 시작할 때 대화 id를 정해 줄 수 있고 설정 파일을 통째로 받는다. codex는 id를
+ * 정해 줄 수 없어 "이 폴더의 가장 최근 것"만 이어받을 수 있고, 설정은 -c로 한 항목씩 덮는다.
+ */
+enum class EAITerminalCli : uint8
+{
+	Claude,
+	Codex,
+};
+
+/**
  * AI 연동 지점.
  *
  * 이 인터페이스 뒤로 Clipboard / Claude / Codex 구현이 들어간다.
@@ -108,6 +121,14 @@ public:
 	 * 끝나는지 알 수 없고, 중간에 사용자가 승인하거나 되물을 수도 있다.
 	 */
 	virtual bool IsInteractive() const { return false; }
+
+	/**
+	 * 터미널에 띄울 CLI. IsInteractive()가 true일 때만 뜻이 있다.
+	 *
+	 * 패널이 이 값을 보고 터미널을 그 CLI로 갈아 끼운다. 목록에서 고른 것과 실제로 도는
+	 * 것이 다르면 사용자가 무엇과 대화하고 있는지 알 수 없다.
+	 */
+	virtual EAITerminalCli GetTerminalCli() const { return EAITerminalCli::Claude; }
 
 	/** 요청을 보낸다. 완료되면 InOnComplete를 게임 스레드에서 호출한다. */
 	virtual void SendRequest(const FAIWidgetRequest& InRequest, FOnAIWidgetResponse InOnComplete) = 0;

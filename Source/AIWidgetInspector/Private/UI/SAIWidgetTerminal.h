@@ -3,8 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AI/AIWidgetProvider.h"
 #include "Widgets/SCompoundWidget.h"
 
+class SBox;
+class SScrollBar;
 class STerminal;
 
 /**
@@ -16,7 +19,9 @@ class STerminal;
  * --allowedTools로 미리 열어 두는 수밖에 없었다.
  *
  * 셸을 한 겹 거쳐서 CLI를 띄우는 이유는 STerminal이 셸 경로를 위젯별로 받지 않기 때문이다.
- * 대신 셸이 남아 있어서 CLI를 끝내도 터미널이 죽지 않고, 사용자가 직접 명령을 칠 수도 있다.
+ * 다만 CLI가 끝나면 셸도 같이 내린다. 셸만 남으면 그 다음에 보내는 프롬프트가 셸로 들어가
+ * 사용자가 쓴 문장이 명령으로 실행되기 때문이다. 화면으로는 CLI가 떠 있는지 알 수 없어서,
+ * 세션이 살아 있는지로만 판단할 수 있게 둘의 수명을 묶었다.
  */
 class SAIWidgetTerminal : public SCompoundWidget
 {
@@ -28,6 +33,13 @@ public:
 
 	/** CLI를 띄운다. 셸이 아직 준비되지 않았으면 준비된 뒤에 띄운다. */
 	void StartCli();
+
+	/**
+	 * 어떤 CLI를 띄울지 정한다. 바뀌면 지금 것을 끝내고 새로 띄운다.
+	 *
+	 * 목록에서 고른 것과 실제로 도는 것이 다르면 사용자가 무엇과 이야기하고 있는지 알 수 없다.
+	 */
+	void SetCli(EAITerminalCli InCli);
 
 	/**
 	 * 한 줄짜리 프롬프트를 CLI에 보낸다. 줄바꿈은 공백으로 눕힌다.
@@ -59,8 +71,16 @@ private:
 	/** cd 후 claude를 실행한다. 셸이 준비된 뒤에만 부른다. */
 	void LaunchCli(double InCurrentTime);
 
+	/**
+	 * 터미널 위젯을 새로 만들어 끼운다.
+	 *
+	 * STerminal은 세션이 죽어도 되살리지 않는다. 초기화를 한 번만 하기 때문이다.
+	 * 그래서 다시 띄우려면 위젯째 갈아 끼우는 수밖에 없다.
+	 */
+	void BuildTerminal();
+
 	/** 이 패널의 대화 id를 적어 두는 곳. 에디터를 다시 켜도 남아 있어야 한다. */
-	static FString GetSessionIdFilePath();
+	FString GetSessionIdFilePath() const;
 
 	/**
 	 * 이 패널이 쓰는 대화 id를 읽어 온다. 없으면 새로 만들어 적는다.
@@ -74,12 +94,21 @@ private:
 	 *
 	 * @param bOutIsNew 이번에 새로 만들었으면 true. 이어받을 것이 없다는 뜻이다.
 	 */
-	static FString LoadOrCreateSessionId(bool& bOutIsNew);
+	FString LoadOrCreateSessionId(bool& bOutIsNew) const;
 
 	FReply HandleRestartClicked();
 	FText GetStatusText() const;
 
+	/** 지금 띄우는 CLI. 패널이 목록에서 고른 것을 넘겨 준다. */
+	EAITerminalCli Cli = EAITerminalCli::Claude;
+
 	TSharedPtr<STerminal> Terminal;
+
+	/** 터미널이 들어가는 자리. 다시 띄울 때 이 안의 내용만 갈아 끼운다. */
+	TSharedPtr<SBox> TerminalHost;
+
+	/** 터미널과 함께 쓰는 스크롤바. 위젯을 새로 만들어도 이건 그대로 쓴다. */
+	TSharedPtr<SScrollBar> TerminalScrollBar;
 
 	/** 보내려고 대기 중인 프롬프트. 비어 있으면 대기 중인 것이 없다. */
 	FString PendingPrompt;
@@ -114,6 +143,9 @@ private:
 	double PromptTypedTime = 0.0;
 
 	bool bCliLaunched = false;
+
+	/** 띄운 CLI가 이미 나갔는지. 셸과 수명을 묶어 두어 세션이 사라지면 이걸로 본다. */
+	bool bCliExited = false;
 
 	/**
 	 * 다음 실행에서 지난 대화를 버릴지.

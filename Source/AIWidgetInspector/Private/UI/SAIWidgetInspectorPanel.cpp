@@ -175,6 +175,13 @@ void SAIWidgetInspectorPanel::Construct(
 		]
 	];
 
+	// 기본 Provider를 고를 때는 터미널 위젯이 아직 없었다. 여기서 맞춰 두지 않으면 목록에는
+	// Codex가 떠 있는데 터미널에서는 claude가 도는 상태가 된다.
+	if (ActiveProvider.IsValid() && ActiveProvider->IsInteractive() && TerminalWidget.IsValid())
+	{
+		TerminalWidget->SetCli(ActiveProvider->GetTerminalCli());
+	}
+
 	RebuildPathEntries();
 }
 
@@ -1507,6 +1514,13 @@ void SAIWidgetInspectorPanel::HandleProviderChanged(FProviderPtr InProvider, ESe
 	if (InProvider.IsValid())
 	{
 		ActiveProvider = InProvider;
+
+		// 목록에서 고른 것과 터미널에서 도는 것이 어긋나면, 사용자는 무엇과 이야기하고
+		// 있는지 알 수 없다. 대화형을 골랐으면 터미널을 그 CLI로 갈아 끼운다.
+		if (InProvider.IsValid() && InProvider->IsInteractive() && TerminalWidget.IsValid())
+		{
+			TerminalWidget->SetCli(InProvider->GetTerminalCli());
+		}
 	}
 }
 

@@ -130,7 +130,10 @@ void FAIWidgetInspectorModule::StartupModule()
 
 	// 패널 안의 터미널로 보내는 길. 위 둘과 달리 프로세스를 새로 띄우지 않고, 이미 떠 있는
 	// 대화형 세션에 프롬프트를 흘려보낸다. 승인을 물으면 사용자가 그 자리에서 답하면 된다.
-	Providers.Add(MakeShared<FAITerminalProvider>());
+	//
+	// CLI마다 하나씩 올린다. 설정 어딘가에 숨겨 두면 지금 무엇과 이야기하고 있는지 알 수 없다.
+	Providers.Add(MakeShared<FAITerminalProvider>(EAITerminalCli::Claude));
+	Providers.Add(MakeShared<FAITerminalProvider>(EAITerminalCli::Codex));
 
 	{
 		FAICliProvider::FConfig CodexConfig;

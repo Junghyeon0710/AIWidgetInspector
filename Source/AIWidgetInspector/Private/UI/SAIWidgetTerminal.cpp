@@ -3,6 +3,7 @@
 #include "UI/SAIWidgetTerminal.h"
 
 #include "AI/AICliProvider.h"
+#include "AI/AITerminalProvider.h"
 #include "AIWidgetInspectorLog.h"
 
 #include "Framework/Application/SlateApplication.h"
@@ -42,7 +43,7 @@ namespace AIWidgetTerminalPrivate
 
 void SAIWidgetTerminal::Construct(const FArguments& InArgs)
 {
-	const TSharedRef<SScrollBar> ScrollBar = SNew(SScrollBar)
+	TerminalScrollBar = SNew(SScrollBar)
 		.Thickness(8.0f);
 
 	ChildSlot
@@ -70,7 +71,7 @@ void SAIWidgetTerminal::Construct(const FArguments& InArgs)
 			[
 				SNew(SButton)
 				.Text(LOCTEXT("RestartCli", "Restart CLI"))
-				.ToolTipText(LOCTEXT("RestartCliTooltip", "Start the CLI again in the same shell. Use this after it exits, or to drop a conversation and begin a new one."))
+				.ToolTipText(LOCTEXT("RestartCliTooltip", "Throw away this terminal and start a fresh CLI. Use it after the CLI exits, or to drop the conversation and begin a new one."))
 				.OnClicked(this, &SAIWidgetTerminal::HandleRestartClicked)
 			]
 		]
@@ -86,22 +87,38 @@ void SAIWidgetTerminal::Construct(const FArguments& InArgs)
 				+ SHorizontalBox::Slot()
 				.FillWidth(1.0f)
 				[
-					SAssignNew(Terminal, STerminal)
-					.ExternalScrollbar(ScrollBar)
+					SAssignNew(TerminalHost, SBox)
 				]
 
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
 				[
-					ScrollBar
+					TerminalScrollBar.ToSharedRef()
 				]
 			]
 		]
 	];
 
+	BuildTerminal();
+
 	// 패널을 여는 것만으로 CLI가 뜨게 한다. 물어보려고 버튼을 누른 뒤에야 뜨기 시작하면
 	// 첫 질문마다 CLI 부팅을 기다리게 된다.
 	StartCli();
+}
+
+void SAIWidgetTerminal::BuildTerminal()
+{
+	TerminalHost->SetContent(
+		SAssignNew(Terminal, STerminal)
+		.ExternalScrollbar(TerminalScrollBar));
+
+	// 새로 만든 위젯은 아직 그려진 적이 없다. PTY는 첫 페인트에서 생기므로 여기서 다시 센다.
+	bEverPainted = false;
+	bCliLaunched = false;
+	bCliExited = false;
+	bAwaitingSubmit = false;
+	bShellTimedOut = false;
+	ShellWaitStartTime = FSlateApplication::Get().GetCurrentTime();
 }
 
 bool SAIWidgetTerminal::IsSessionRunning() const
@@ -124,6 +141,22 @@ void SAIWidgetTerminal::StartCli()
 	}
 
 	EnsurePumpRunning();
+}
+
+void SAIWidgetTerminal::SetCli(EAITerminalCli InCli)
+{
+	if (Cli == InCli)
+	{
+		return;
+	}
+
+	// 다른 CLI로 바꾸라는 것은 지금 떠 있는 것을 끝내라는 뜻이다. 죽은 세션은 되살릴 수
+	// 없고 살아 있는 것도 안에서 무엇을 하는지 알 수 없으니, 위젯째 갈아 끼운다.
+	Cli = InCli;
+	PendingPrompt.Reset();
+
+	BuildTerminal();
+	StartCli();
 }
 
 void SAIWidgetTerminal::SendPrompt(const FString& InPrompt)
@@ -153,13 +186,15 @@ void SAIWidgetTerminal::EnsurePumpRunning()
 	PumpHandle = RegisterActiveTimer(0.1f, FWidgetActiveTimerDelegate::CreateSP(this, &SAIWidgetTerminal::OnPump));
 }
 
-FString SAIWidgetTerminal::GetSessionIdFilePath()
+FString SAIWidgetTerminal::GetSessionIdFilePath() const
 {
-	// Saved 아래에 둔다. 사용자마다 다른 값이고 저장소에 들어갈 것이 아니다.
-	return FPaths::ProjectSavedDir() / TEXT("AIWidgetInspector") / TEXT("TerminalSession.txt");
+	// CLI마다 따로 둔다. 대화가 저장되는 곳이 다르니 한 파일에 섞으면 서로의 id를 물려받는다.
+	// Saved 아래에 두는 것은 사용자마다 다른 값이고 저장소에 들어갈 것이 아니기 때문이다.
+	return FPaths::ProjectSavedDir() / TEXT("AIWidgetInspector")
+		/ FString::Printf(TEXT("TerminalSession-%s.txt"), FAITerminalProvider::GetExecutable(Cli));
 }
 
-FString SAIWidgetTerminal::LoadOrCreateSessionId(bool& bOutIsNew)
+FString SAIWidgetTerminal::LoadOrCreateSessionId(bool& bOutIsNew) const
 {
 	const FString FilePath = GetSessionIdFilePath();
 
@@ -204,50 +239,97 @@ void SAIWidgetTerminal::LaunchCli(double InCurrentTime)
 	Terminal->ExecuteCommand(FString::Printf(TEXT("cd \"%s\""), *ProjectDir));
 #endif
 
-	FString Command = TEXT("claude");
+	const TCHAR* const Executable = FAITerminalProvider::GetExecutable(Cli);
+
+	// 에디터 MCP가 떠 있으면 물려 준다. 그래야 CLI가 답만 하지 않고 위젯을 직접 고칠 수 있다.
+	// --allowedTools 같은 것으로 미리 좁히지 않는 것이 원샷 Provider와 다른 점이다.
+	// 대화형이라 승인을 물을 데가 있고, 무엇을 허락할지는 사용자가 그 자리에서 정하면 된다.
+	FString SharedFlags;
+	if (FAICliProvider::IsEditorMcpRunning())
+	{
+		switch (Cli)
+		{
+		case EAITerminalCli::Claude:
+			{
+				// 절대 경로로 펴서 넘긴다. WriteMcpConfigFile이 돌려주는 것은 엔진 실행 파일
+				// 기준의 상대 경로라, 에디터가 직접 띄우는 원샷 Provider에서는 맞지만 여기서는
+				// 아니다. 우리는 셸을 프로젝트로 옮겨 놓고 CLI를 띄우므로 기준점이 다르다.
+				const FString McpConfigPath = FAICliProvider::WriteMcpConfigFile(TEXT("unreal"));
+				if (!McpConfigPath.IsEmpty())
+				{
+					SharedFlags = FString::Printf(TEXT(" --strict-mcp-config --mcp-config \"%s\""),
+						*FPaths::ConvertRelativePathToFull(McpConfigPath));
+				}
+			}
+			break;
+
+		case EAITerminalCli::Codex:
+			// codex는 설정 파일을 통째로 받지 않고 ~/.codex/config.toml 의 항목을 -c로 덮는다.
+			// 값에 따옴표를 두르지 않는다. TOML로 파싱되지 않으면 문자열 그대로 쓰는데 URL이
+			// 그 경우라, cmd 안에서 따옴표를 겹치지 않아도 되는 이쪽이 안전하다.
+			SharedFlags = FString::Printf(TEXT(" -c mcp_servers.unreal.url=%s"),
+				*FAICliProvider::GetEditorMcpUrl());
+			break;
+		}
+	}
 
 	// 지난 대화를 이어받는다. 이 터미널은 에디터 안에 살기 때문에, C++을 고쳐 에디터를
 	// 다시 켜면 세션이 함께 사라진다. 그런데 UE에서 C++을 고치면 재시작은 늘 있는 일이라,
 	// 이어받지 않으면 패널에서 시작한 일을 패널에서 끝낼 수가 없다.
-	//
-	// 이어받을 대화를 id로 못 박는다. --continue는 "그 폴더의 가장 최근 대화"를 집어오는데,
-	// 같은 프로젝트에서 CLI를 따로 띄워 두면 그쪽 대화를 가져와 엉뚱한 맥락에 이어 붙는다.
 	if (bStartFresh)
 	{
-		// 새로 시작하라는 뜻이므로 지난 id는 버린다. 같은 id로 다시 열면 CLI가 거부한다.
+		// 새로 시작하라는 뜻이므로 지난 기록은 버린다.
 		IFileManager::Get().Delete(*GetSessionIdFilePath(), /*RequireExists=*/false);
 		bStartFresh = false;
 	}
 
+	// codex는 id를 쓰지 않지만 파일은 똑같이 남긴다. 여기서 필요한 것은 "전에 띄운 적이
+	// 있는가"이고, 그건 파일이 있느냐로 알 수 있다.
 	bool bIsNewSession = false;
 	SessionId = LoadOrCreateSessionId(bIsNewSession);
 	bResumedConversation = !bIsNewSession;
 
-	// Printf의 포맷은 컴파일 타임에 검사되므로 리터럴이어야 한다. 삼항으로 고를 수 없다.
-	if (bResumedConversation)
+	FString FreshCommand;
+	FString ResumeCommand;
+	switch (Cli)
 	{
-		Command += FString::Printf(TEXT(" --resume %s"), *SessionId);
-	}
-	else
-	{
-		Command += FString::Printf(TEXT(" --session-id %s"), *SessionId);
+	case EAITerminalCli::Claude:
+		FreshCommand = FString::Printf(TEXT("%s --session-id %s%s"), Executable, *SessionId, *SharedFlags);
+		ResumeCommand = FString::Printf(TEXT("%s --resume %s%s"), Executable, *SessionId, *SharedFlags);
+		break;
+
+	case EAITerminalCli::Codex:
+		// codex는 시작할 때 대화 id를 정해 줄 수 없다. 이어받는 길이 "이 폴더의 가장 최근
+		// 것"뿐이라, 같은 프로젝트에서 codex를 따로 띄워 두었다면 그쪽을 집을 수 있다.
+		// claude처럼 못 박을 방법이 없어 여기서는 감수한다.
+		FreshCommand = FString::Printf(TEXT("%s%s"), Executable, *SharedFlags);
+		ResumeCommand = FString::Printf(TEXT("%s resume --last%s"), Executable, *SharedFlags);
+		break;
 	}
 
-	// 에디터 MCP가 떠 있으면 물려 준다. 그래야 CLI가 답만 하지 않고 위젯을 직접 고칠 수 있다.
-	// --allowedTools로 미리 열어 주지 않는 것이 원샷 Provider와 다른 점이다. 대화형이라
-	// 승인을 물을 데가 있고, 무엇을 허락할지는 사용자가 그 자리에서 정하면 된다.
-	if (FAICliProvider::IsEditorMcpRunning())
+	FString CliCommand = FreshCommand;
+	if (bResumedConversation)
 	{
-		// 절대 경로로 펴서 넘긴다. WriteMcpConfigFile이 돌려주는 것은 엔진 실행 파일 기준의
-		// 상대 경로라, 에디터가 직접 띄우는 원샷 Provider에서는 맞지만 여기서는 아니다.
-		// 우리는 셸을 프로젝트로 옮겨 놓고 CLI를 띄우므로 기준점이 다르다.
-		const FString McpConfigPath = FAICliProvider::WriteMcpConfigFile(TEXT("unreal"));
-		if (!McpConfigPath.IsEmpty())
-		{
-			Command += FString::Printf(TEXT(" --strict-mcp-config --mcp-config \"%s\""),
-				*FPaths::ConvertRelativePathToFull(McpConfigPath));
-		}
+		// 기록이 있다고 이어받을 대화가 있는 것은 아니다. CLI는 오간 말이 있어야 대화를
+		// 저장하므로, 패널만 열고 아무것도 묻지 않은 채 에디터를 닫으면 기록만 남는다.
+		// 그때 이어받기는 실패하고 CLI가 그대로 끝난다. 실패하면 새로 시작하게 해서
+		// 어긋난 기록이 스스로 풀리게 한다.
+		CliCommand = FString::Printf(TEXT("%s || %s"), *ResumeCommand, *FreshCommand);
 	}
+
+	// CLI가 끝나면 셸도 함께 내린다.
+	//
+	// 셸만 남으면 그 다음에 보내는 프롬프트가 셸로 들어가고, 사용자가 쓴 문장이 그대로
+	// 명령이 된다. 실제로 "Read ... for the Unreal widget"이 명령으로 실행됐다. 문장에
+	// '>'나 '|'가 하나만 있어도 파일이 생기거나 엉뚱한 것이 실행된다.
+	//
+	// 화면을 읽을 수 없어서 CLI가 떠 있는지 알 방법이 IsSessionRunning뿐이다. 둘의 수명을
+	// 묶어 두면 그 하나로 판단할 수 있다.
+#if PLATFORM_WINDOWS
+	const FString Command = FString::Printf(TEXT("(%s) & exit"), *CliCommand);
+#else
+	const FString Command = FString::Printf(TEXT("{ %s; }; exit"), *CliCommand);
+#endif
 
 	UE_LOG(LogAIWidgetInspector, Log, TEXT("Terminal launching the CLI: %s"), *Command);
 
@@ -270,6 +352,22 @@ EActiveTimerReturnType SAIWidgetTerminal::OnPump(double InCurrentTime, float InD
 {
 	if (!Terminal.IsValid())
 	{
+		PumpHandle.Reset();
+		return EActiveTimerReturnType::Stop;
+	}
+
+	// CLI와 셸의 수명을 묶어 두었으므로, 한 번 띄운 뒤에 세션이 없다는 것은 CLI가 나갔다는
+	// 뜻이다. 아래의 "셸이 아직 안 떴다"와는 다른 상황이라 먼저 갈라 놓는다.
+	//
+	// 남은 프롬프트는 버린다. 보낼 곳이 없는데 들고 있으면, 다음에 무엇이 열리든 그리로
+	// 들어간다.
+	if (bCliLaunched && !Terminal->IsSessionRunning())
+	{
+		UE_LOG(LogAIWidgetInspector, Log, TEXT("The CLI exited, so the terminal session ended."));
+
+		bCliExited = true;
+		PendingPrompt.Reset();
+		bAwaitingSubmit = false;
 		PumpHandle.Reset();
 		return EActiveTimerReturnType::Stop;
 	}
@@ -359,22 +457,18 @@ EActiveTimerReturnType SAIWidgetTerminal::OnPump(double InCurrentTime, float InD
 
 FReply SAIWidgetTerminal::HandleRestartClicked()
 {
-	if (!Terminal.IsValid())
+	if (!TerminalHost.IsValid())
 	{
 		return FReply::Handled();
 	}
 
-	// CLI가 돌고 있으면 물러나게 한다. /exit는 claude가 정리하고 나가는 길이라, 셸이
-	// 그대로 남아 다음 실행을 받는다. 이미 셸에 있었다면 알 수 없는 명령이라는 한 줄이
-	// 찍힐 뿐이고, 어느 쪽이든 그 다음은 조용해진 뒤에 다시 띄운다.
-	Terminal->ExecuteCommand(TEXT("/exit"));
-
-	bCliLaunched = false;
+	// 죽은 세션은 되살아나지 않고, 살아 있어도 안에서 CLI가 무엇을 하고 있는지 알 수 없다.
+	// 어느 쪽이든 새 위젯으로 갈아 끼우는 편이 확실하다. 옛 위젯이 사라지면서 그 세션도
+	// 함께 정리된다.
 	bStartFresh = true;
-	bAwaitingSubmit = false;
 	PendingPrompt.Reset();
-	ShellWaitStartTime = FSlateApplication::Get().GetCurrentTime();
-	bShellTimedOut = false;
+
+	BuildTerminal();
 	EnsurePumpRunning();
 
 	return FReply::Handled();
@@ -382,6 +476,11 @@ FReply SAIWidgetTerminal::HandleRestartClicked()
 
 FText SAIWidgetTerminal::GetStatusText() const
 {
+	if (bCliExited)
+	{
+		return LOCTEXT("CliExited", "The CLI exited, so this terminal is finished. Press Restart CLI to start another one.");
+	}
+
 	if (bShellTimedOut)
 	{
 		return LOCTEXT("ShellFailed", "The terminal shell did not start. Check the output log.");
@@ -403,9 +502,11 @@ FText SAIWidgetTerminal::GetStatusText() const
 	}
 
 	FString ExecutablePath;
-	if (!FAICliProvider::FindExecutable(TEXT("claude"), ExecutablePath))
+	if (!FAICliProvider::FindExecutable(FAITerminalProvider::GetExecutable(Cli), ExecutablePath))
 	{
-		return LOCTEXT("CliMissing", "'claude' was not found on PATH. Install it, then press Restart CLI.");
+		return FText::Format(
+			LOCTEXT("CliMissing", "'{0}' was not found on PATH. Install it, then press Restart CLI."),
+			FText::FromString(FAITerminalProvider::GetExecutable(Cli)));
 	}
 
 	if (bResumedConversation)
