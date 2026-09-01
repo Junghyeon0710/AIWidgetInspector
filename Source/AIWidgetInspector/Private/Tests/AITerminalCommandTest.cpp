@@ -24,6 +24,11 @@ bool FAITerminalCommandTest::RunTest(const FString& Parameters)
 
 	const FString SessionId = TEXT("11111111-2222-3333-4444-555555555555");
 
+	// 에디터를 Claude Code 안에서 띄우면 그쪽 환경 변수가 여기까지 내려온다. 그대로 두면
+	// 우리가 띄운 CLI가 자기를 남의 자식으로 보고 대화 저장을 꺼서, 다음에 이어받을 것이
+	// 없어진다.
+	const TCHAR* const WindowsPrefix = TEXT("set \"CLAUDE_CODE_CHILD_SESSION=\" & set \"CLAUDE_CODE_SESSION_ID=\" & ");
+
 	// --- 처음 띄울 때는 이어받기를 시도하지 않는다 ---
 	//
 	// 없는 대화를 이어받으려 하면 CLI가 오류를 찍는다. 처음 켠 사람이 그 줄부터 보게 된다.
@@ -36,7 +41,7 @@ bool FAITerminalCommandTest::RunTest(const FString& Parameters)
 
 		TestEqual(TEXT("claude 첫 실행"),
 			BuildLaunchCommand(Launch),
-			FString::Printf(TEXT("(claude --session-id %s) & exit"), *SessionId));
+			FString::Printf(TEXT("%s(claude --session-id %s) & exit"), WindowsPrefix, *SessionId));
 	}
 
 	// --- 이어받기가 실패하면 같은 id로 새로 시작한다 ---
@@ -52,8 +57,8 @@ bool FAITerminalCommandTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("claude 이어받기와 폴백"),
 			BuildLaunchCommand(Launch),
 			FString::Printf(
-				TEXT("(claude --resume %s || claude --session-id %s) & exit"),
-				*SessionId, *SessionId));
+				TEXT("%s(claude --resume %s || claude --session-id %s) & exit"),
+				WindowsPrefix, *SessionId, *SessionId));
 	}
 
 	// --- MCP 인자는 양쪽 모두에 붙어야 한다 ---
@@ -103,7 +108,7 @@ bool FAITerminalCommandTest::RunTest(const FString& Parameters)
 
 		const FString Command = BuildLaunchCommand(Launch);
 
-		TestEqual(TEXT("codex 첫 실행"), Command, TEXT("(codex) & exit"));
+		TestEqual(TEXT("codex 첫 실행"), Command, FString::Printf(TEXT("%s(codex) & exit"), WindowsPrefix));
 		TestFalse(TEXT("codex 명령에 세션 id가 실리지 않는다"), Command.Contains(SessionId));
 		TestFalse(TEXT("claude 전용 인자가 새어 들어가지 않는다"), Command.Contains(TEXT("--session-id")));
 	}
@@ -119,8 +124,10 @@ bool FAITerminalCommandTest::RunTest(const FString& Parameters)
 
 		TestEqual(TEXT("codex 이어받기와 폴백"),
 			BuildLaunchCommand(Launch),
-			TEXT("(codex resume --last -c mcp_servers.unreal.url=http://127.0.0.1:8000/mcp")
-			TEXT(" || codex -c mcp_servers.unreal.url=http://127.0.0.1:8000/mcp) & exit"));
+			FString::Printf(
+				TEXT("%s(codex resume --last -c mcp_servers.unreal.url=http://127.0.0.1:8000/mcp")
+				TEXT(" || codex -c mcp_servers.unreal.url=http://127.0.0.1:8000/mcp) & exit"),
+				WindowsPrefix));
 	}
 
 	// --- 반대쪽 MCP 인자를 잘못 집지 않는다 ---
@@ -159,7 +166,9 @@ bool FAITerminalCommandTest::RunTest(const FString& Parameters)
 
 		TestEqual(TEXT("POSIX 셸 문법"),
 			BuildLaunchCommand(Launch),
-			FString::Printf(TEXT("{ claude --session-id %s; }; exit"), *SessionId));
+			FString::Printf(
+				TEXT("unset CLAUDE_CODE_CHILD_SESSION CLAUDE_CODE_SESSION_ID; { claude --session-id %s; }; exit"),
+				*SessionId));
 	}
 
 	// --- cd 는 드라이브를 넘어가야 한다 ---

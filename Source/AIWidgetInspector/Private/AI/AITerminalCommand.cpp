@@ -87,9 +87,20 @@ namespace AIWidgetInspector::TerminalCommand
 		// 화면을 읽을 수 없어서 CLI가 떠 있는지 알 방법이 IsSessionRunning뿐이다. 둘의
 		// 수명을 묶어 두면 그 하나로 판단할 수 있다.
 		//
+		// 물려받은 세션 표시를 지우고 띄운다.
+		//
+		// 에디터를 Claude Code 안에서 띄우면 그쪽 환경 변수가 에디터를 거쳐 여기까지 내려온다.
+		// 그러면 우리가 띄운 CLI가 자기를 남의 자식 세션으로 보고 대화 저장을 꺼 버린다.
+		// 저장이 꺼지면 다음에 이어받을 것이 없어져, 재시작을 견디게 만들어 둔 것이 통째로
+		// 무력해진다. 화면에도 경고 한 줄로만 지나가서 알아채기 어렵다.
+		//
+		// 이 CLI는 남의 자식이 아니라 이 패널이 띄운 독립 세션이다. 물려받은 표시를 지우는
+		// 것은 없는 사실을 만드는 것이 아니라 잘못 따라온 것을 떼는 것이다.
+		const TCHAR* const ClearedMarkers = TEXT("CLAUDE_CODE_CHILD_SESSION CLAUDE_CODE_SESSION_ID");
+
 		// 괄호로 묶는 이유는 || 가 exit 까지 삼키지 않게 하기 위해서다.
 		return InLaunch.bWindowsShell
-			? FString::Printf(TEXT("(%s) & exit"), *CliCommand)
-			: FString::Printf(TEXT("{ %s; }; exit"), *CliCommand);
+			? FString::Printf(TEXT("set \"CLAUDE_CODE_CHILD_SESSION=\" & set \"CLAUDE_CODE_SESSION_ID=\" & (%s) & exit"), *CliCommand)
+			: FString::Printf(TEXT("unset %s; { %s; }; exit"), ClearedMarkers, *CliCommand);
 	}
 }
