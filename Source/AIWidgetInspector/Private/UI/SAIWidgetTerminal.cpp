@@ -3,6 +3,7 @@
 #include "UI/SAIWidgetTerminal.h"
 
 #include "AI/AICliEnvironment.h"
+#include "AI/AITerminalCommand.h"
 #include "AI/AITerminalProvider.h"
 #include "AIWidgetInspectorLog.h"
 
@@ -236,46 +237,36 @@ FString SAIWidgetTerminal::LoadOrCreateSessionId(bool& bOutIsNew) const
 
 void SAIWidgetTerminal::LaunchCli(double InCurrentTime)
 {
-	const FString ProjectDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
+	using namespace AIWidgetInspector;
+
+	const bool bWindowsShell = PLATFORM_WINDOWS != 0;
 
 	// STerminal은 엔진 루트에서 셸을 연다. CLI가 프로젝트를 작업 디렉터리로 보게 옮긴다.
-#if PLATFORM_WINDOWS
-	Terminal->ExecuteCommand(FString::Printf(TEXT("cd /d \"%s\""), *ProjectDir));
-#else
-	Terminal->ExecuteCommand(FString::Printf(TEXT("cd \"%s\""), *ProjectDir));
-#endif
+	const FString ProjectDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
+	Terminal->ExecuteCommand(TerminalCommand::BuildChangeDirectoryCommand(ProjectDir, bWindowsShell));
 
-	const TCHAR* const Executable = FAITerminalProvider::GetExecutable(Cli);
+	TerminalCommand::FLaunch Launch;
+	Launch.Cli = Cli;
+	Launch.bWindowsShell = bWindowsShell;
 
 	// 에디터 MCP가 떠 있으면 물려 준다. 그래야 CLI가 답만 하지 않고 위젯을 직접 고칠 수 있다.
-	// --allowedTools 같은 것으로 미리 좁히지 않는 것이 원샷 Provider와 다른 점이다.
-	// 대화형이라 승인을 물을 데가 있고, 무엇을 허락할지는 사용자가 그 자리에서 정하면 된다.
-	FString SharedFlags;
-	if (AIWidgetInspector::CliEnvironment::IsEditorMcpRunning())
+	// 무엇을 허락할지는 미리 좁히지 않는다. 대화형이라 승인을 물을 자리가 있고, 그건
+	// 사용자가 그 자리에서 정하면 된다.
+	if (CliEnvironment::IsEditorMcpRunning())
 	{
-		switch (Cli)
+		if (Cli == EAITerminalCli::Codex)
 		{
-		case EAITerminalCli::Claude:
+			Launch.McpUrl = CliEnvironment::GetEditorMcpUrl();
+		}
+		else
+		{
+			// 절대 경로로 펴서 넘긴다. WriteMcpConfigFile이 돌려주는 것은 엔진 실행 파일
+			// 기준의 상대 경로인데, 우리는 셸을 프로젝트로 옮겨 놓고 CLI를 띄운다.
+			const FString McpConfigPath = CliEnvironment::WriteMcpConfigFile(TEXT("unreal"));
+			if (!McpConfigPath.IsEmpty())
 			{
-				// 절대 경로로 펴서 넘긴다. WriteMcpConfigFile이 돌려주는 것은 엔진 실행 파일
-				// 기준의 상대 경로라, 에디터가 직접 띄우는 원샷 Provider에서는 맞지만 여기서는
-				// 아니다. 우리는 셸을 프로젝트로 옮겨 놓고 CLI를 띄우므로 기준점이 다르다.
-				const FString McpConfigPath = AIWidgetInspector::CliEnvironment::WriteMcpConfigFile(TEXT("unreal"));
-				if (!McpConfigPath.IsEmpty())
-				{
-					SharedFlags = FString::Printf(TEXT(" --strict-mcp-config --mcp-config \"%s\""),
-						*FPaths::ConvertRelativePathToFull(McpConfigPath));
-				}
+				Launch.McpConfigPath = FPaths::ConvertRelativePathToFull(McpConfigPath);
 			}
-			break;
-
-		case EAITerminalCli::Codex:
-			// codex는 설정 파일을 통째로 받지 않고 ~/.codex/config.toml 의 항목을 -c로 덮는다.
-			// 값에 따옴표를 두르지 않는다. TOML로 파싱되지 않으면 문자열 그대로 쓰는데 URL이
-			// 그 경우라, cmd 안에서 따옴표를 겹치지 않아도 되는 이쪽이 안전하다.
-			SharedFlags = FString::Printf(TEXT(" -c mcp_servers.unreal.url=%s"),
-				*AIWidgetInspector::CliEnvironment::GetEditorMcpUrl());
-			break;
 		}
 	}
 
@@ -295,47 +286,10 @@ void SAIWidgetTerminal::LaunchCli(double InCurrentTime)
 	SessionId = LoadOrCreateSessionId(bIsNewSession);
 	bResumedConversation = !bIsNewSession;
 
-	FString FreshCommand;
-	FString ResumeCommand;
-	switch (Cli)
-	{
-	case EAITerminalCli::Claude:
-		FreshCommand = FString::Printf(TEXT("%s --session-id %s%s"), Executable, *SessionId, *SharedFlags);
-		ResumeCommand = FString::Printf(TEXT("%s --resume %s%s"), Executable, *SessionId, *SharedFlags);
-		break;
+	Launch.SessionId = SessionId;
+	Launch.bResume = bResumedConversation;
 
-	case EAITerminalCli::Codex:
-		// codex는 시작할 때 대화 id를 정해 줄 수 없다. 이어받는 길이 "이 폴더의 가장 최근
-		// 것"뿐이라, 같은 프로젝트에서 codex를 따로 띄워 두었다면 그쪽을 집을 수 있다.
-		// claude처럼 못 박을 방법이 없어 여기서는 감수한다.
-		FreshCommand = FString::Printf(TEXT("%s%s"), Executable, *SharedFlags);
-		ResumeCommand = FString::Printf(TEXT("%s resume --last%s"), Executable, *SharedFlags);
-		break;
-	}
-
-	FString CliCommand = FreshCommand;
-	if (bResumedConversation)
-	{
-		// 기록이 있다고 이어받을 대화가 있는 것은 아니다. CLI는 오간 말이 있어야 대화를
-		// 저장하므로, 패널만 열고 아무것도 묻지 않은 채 에디터를 닫으면 기록만 남는다.
-		// 그때 이어받기는 실패하고 CLI가 그대로 끝난다. 실패하면 새로 시작하게 해서
-		// 어긋난 기록이 스스로 풀리게 한다.
-		CliCommand = FString::Printf(TEXT("%s || %s"), *ResumeCommand, *FreshCommand);
-	}
-
-	// CLI가 끝나면 셸도 함께 내린다.
-	//
-	// 셸만 남으면 그 다음에 보내는 프롬프트가 셸로 들어가고, 사용자가 쓴 문장이 그대로
-	// 명령이 된다. 실제로 "Read ... for the Unreal widget"이 명령으로 실행됐다. 문장에
-	// '>'나 '|'가 하나만 있어도 파일이 생기거나 엉뚱한 것이 실행된다.
-	//
-	// 화면을 읽을 수 없어서 CLI가 떠 있는지 알 방법이 IsSessionRunning뿐이다. 둘의 수명을
-	// 묶어 두면 그 하나로 판단할 수 있다.
-#if PLATFORM_WINDOWS
-	const FString Command = FString::Printf(TEXT("(%s) & exit"), *CliCommand);
-#else
-	const FString Command = FString::Printf(TEXT("{ %s; }; exit"), *CliCommand);
-#endif
+	const FString Command = TerminalCommand::BuildLaunchCommand(Launch);
 
 	UE_LOG(LogAIWidgetInspector, Log, TEXT("Terminal launching the CLI: %s"), *Command);
 
