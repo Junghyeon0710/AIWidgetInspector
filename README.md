@@ -277,6 +277,14 @@ given its permissions up front, so they were handed the editor's tools and nothi
 or writing code. Asked to add a C++ base class they explained why they could not, which is a worse
 answer than a prompt you can say yes to.
 
+The two Terminal providers differ in one way worth knowing before you pick. This panel keeps its own
+conversation so that closing the editor to rebuild — which in Unreal is constant — does not throw
+away what you were in the middle of. `claude` can be told which conversation to resume, so the panel
+pins one by id and resumes only that. `codex` has no such flag: the most it can do is resume the
+most recent codex conversation in the working directory. So if you have run `codex` in this project
+folder from another terminal, the panel may resume that one instead. The CLI Session says so, both
+before you start it and after it resumes, and stays amber rather than green while that is the case.
+
 A provider that cannot run right now says so in the panel, above the question box, with the command
 that fixes it. A disabled button and a tooltip are not enough: nobody hovers a greyed control to find
 out why it is grey, and the plugin ends up looking broken rather than unconfigured.

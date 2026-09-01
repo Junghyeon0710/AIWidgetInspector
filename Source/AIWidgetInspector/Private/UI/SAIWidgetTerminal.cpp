@@ -568,6 +568,15 @@ SAIWidgetTerminal::FStatus SAIWidgetTerminal::GetStatus() const
 	// 아직 시작하지 않았다면 그것부터 말한다. 아래 안내를 읽고 누르라는 뜻이다.
 	if (!bStarted)
 	{
+		// codex는 시작할 때 어느 대화를 이을지 지정할 수 없다. 누르고 나서 알면 늦다.
+		if (Cli == EAITerminalCli::Codex)
+		{
+			return { LOCTEXT("NotStartedCodex",
+				"codex is not running.  Read the note below, then press Start CLI.  "
+				"It resumes the most recent codex conversation in this project folder, so if you have run codex here "
+				"in another terminal, it will pick up that one."), Waiting };
+		}
+
 		return { FText::Format(
 			LOCTEXT("NotStarted", "{0} is not running.  Read the note below, then press Start CLI."),
 			CliName), Waiting };
@@ -645,16 +654,32 @@ SAIWidgetTerminal::FStatus SAIWidgetTerminal::GetStatus() const
 		? LOCTEXT("McpOn", "Unreal MCP is attached, so it can change the widget in the running editor.")
 		: LOCTEXT("McpOff", "Unreal MCP is off, so it can only read and write files.  Turn on Auto Start Server under Project Settings > Plugins > Model Context Protocol, then restart the editor.");
 
-	const FSlateColor ReadyColor = bMcpAttached ? Running : Caution;
+	// 어느 대화를 이었는지도 말한다.
+	//
+	// claude는 우리가 정한 id로만 잇기 때문에 이 패널의 것이라고 단언할 수 있다. codex는
+	// 그럴 방법이 없어서 "이 폴더의 가장 최근 것"뿐이고, 밖에서 codex를 쓴 적이 있으면
+	// 그쪽일 수 있다. 단언할 수 없는 것을 단언하지 않는다.
+	const bool bAmbiguousResume = bResumedConversation && Cli == EAITerminalCli::Codex;
 
-	if (bResumedConversation)
+	TArray<FText> Parts;
+	Parts.Add(FText::Format(LOCTEXT("CliRunning", "{0} is running."), CliName));
+
+	if (bAmbiguousResume)
 	{
-		return { FText::Format(
-			LOCTEXT("CliReadyResumed", "{0} is running and picked up the previous conversation.  {1}"),
-			CliName, McpNote), ReadyColor };
+		Parts.Add(LOCTEXT("ResumedCodex",
+			"It resumed the most recent codex conversation in this project folder, which may be one you started elsewhere."));
+	}
+	else if (bResumedConversation)
+	{
+		Parts.Add(LOCTEXT("ResumedClaude", "It picked up this panel's previous conversation."));
 	}
 
-	return { FText::Format(LOCTEXT("CliReady", "{0} is running.  {1}"), CliName, McpNote), ReadyColor };
+	Parts.Add(McpNote);
+
+	// 둘 다 "돌기는 하는데 알아 둘 것이 있다"는 상태라 같은 색을 쓴다.
+	const FSlateColor ReadyColor = (bMcpAttached && !bAmbiguousResume) ? Running : Caution;
+
+	return { FText::Join(FText::FromString(TEXT("  ")), Parts), ReadyColor };
 }
 
 FText SAIWidgetTerminal::GetStatusText() const
