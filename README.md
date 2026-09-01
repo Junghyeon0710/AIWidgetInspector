@@ -126,15 +126,15 @@ directly:
 | `SaveWidgetAsset` | Writes the dirty Blueprint to disk |
 | `RevertPreview` | Restores every previewed property to its original |
 
-Picking **Claude Code (Unreal MCP)** and pressing **Request Change** runs the whole loop: the plugin
-writes an MCP config pointing at the editor, launches the CLI against it, and the model reads the
-selection and applies the change through the tools. Nothing is pasted, and no JSON is parsed out of
-the reply — by the time it arrives the change has already happened, and the text explains what was
-done.
+Picking a **Terminal** provider and pressing **Request Change** runs the whole loop: the plugin
+writes an MCP config pointing at the editor, starts the CLI in the panel against it, and the model
+reads the selection and applies the change through the tools. Nothing is pasted, and no JSON is
+parsed out of the reply — by the time it arrives the change has already happened, and the text
+explains what was done.
 
-The same CLI is registered twice on purpose. One entry returns JSON for the plugin to apply, the
-other lets the model act. Which one you are using is visible in the provider list rather than hidden
-behind a setting.
+The tools are one of two ways the CLI can act. It also has the project as its working directory, so
+work the tools do not cover — a new C++ class, a fix in existing code — it does by editing files.
+A job often needs both, and the context sent with each request says so.
 
 The editor's MCP server has to be running for the tool provider: **Project Settings → Model Context
 Protocol → Auto Start Server**. The port and path are read from those same settings, so changing
@@ -260,18 +260,23 @@ undo is the whole story.
 | Provider | What it does | Requires |
 |---|---|---|
 | **Clipboard** | Copies the prompt so you can paste it into whatever assistant you already use | nothing |
-| **Claude Code** | Pipes the prompt to `claude -p` and shows what comes back | `claude` on `PATH` |
-| **Claude Code (Unreal MCP)** | Same CLI, connected to the editor — it calls the widget tools itself | `claude` on `PATH`, MCP server running |
-| **Codex** | Pipes the prompt to `codex exec -` and shows what comes back | `codex` on `PATH` |
+| **Claude Code (Terminal)** | Runs `claude` in the CLI Session below, connected to the editor | `claude` on `PATH` |
+| **Codex (Terminal)** | Runs `codex` in the CLI Session below, connected to the editor | `codex` on `PATH` |
+
+Earlier versions also shipped one-shot providers that piped the prompt to `claude -p` or
+`codex exec -` and showed the reply. They are gone. A run with no way to ask for approval has to be
+given its permissions up front, so they were handed the editor's tools and nothing else — no reading
+or writing code. Asked to add a C++ base class they explained why they could not, which is a worse
+answer than a prompt you can say yes to.
 
 A provider that cannot run right now says so in the panel, above the question box, with the command
-that fixes it — `claude` missing names the npm install line; the MCP provider with the editor's
-server switched off names the setting and points at the non-MCP provider as a way to keep working
-meanwhile. A disabled button and a tooltip are not enough: nobody hovers a greyed control to find
+that fixes it. A disabled button and a tooltip are not enough: nobody hovers a greyed control to find
 out why it is grey, and the plugin ends up looking broken rather than unconfigured.
 
-The MCP provider also reports itself unavailable when the server is off, rather than accepting the
-request and failing at the 180-second timeout.
+The CLI Session says what state it is in, in colour: what needs a hand, what is still starting, and
+what is running. It also says whether the editor's MCP server is actually attached — checked by
+asking the server whether it is running, not by reading the auto-start setting, which stays true
+even when the port was already taken.
 
 The CLI providers hold no credentials. The prompt goes to the tool's stdin, the answer comes back
 on stdout, and authentication is whatever that CLI already has — the plugin never stores an API key
