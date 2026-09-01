@@ -317,6 +317,36 @@ Widgets written directly in C++ Slate have no such metadata, so those fields rea
 being guessed at. When a widget has no metadata of its own but an ancestor does, the panel says so
 instead of quietly presenting the ancestor's data as the widget's own.
 
+## Non-Latin text in the terminal
+
+If you type Korean, Japanese or Chinese into the CLI Session, two separate things go wrong. The
+first is fixable, the second is not — not from this plugin.
+
+**Missing glyphs.** The terminal's default font is `CascadiaMono`, which has no CJK glyphs, so the
+text comes out as boxes. The codepoints are intact; only the font is wrong. Change it in
+*Editor Preferences ▸ Terminal ▸ Font Family*, or in `DefaultEditorPerProjectUserSettings.ini`:
+
+```ini
+[/Script/Terminal.TerminalSettings]
+FontFamily=NGULIM
+```
+
+The value is a filename stem, not a font name. On Windows the engine resolves it as
+`%WINDIR%\Fonts\<stem>.ttf` and looks nowhere else, so it has to be a `.ttf` that is actually in
+that folder. Font *collections* cannot be used: `gulim.ttc`, `batang.ttc`, `msgothic.ttc` and
+`simsun.ttc` are all `.ttc`, so none of them can be selected however you spell them. Pick a
+monospace `.ttf` that carries the glyphs you need — on a Korean Windows install `NGULIM.TTF` is one.
+
+**Drifting borders.** Fixing the font does not fix the layout. The engine terminal stores one
+`TCHAR` per cell with no width, and paints every cell at the same `CellWidth`; there is no
+`wcwidth` or East Asian Width handling anywhere in it. CLIs assume the opposite — they count a
+full-width character as two columns when they draw their boxes and wrap their text. So while
+CJK text is on screen the TUI borders drift, and the drift persists until that text scrolls away.
+
+There is no setting for this and no way to correct it from outside the terminal widget; it would
+have to be fixed in the engine's Terminal plugin. Asking in English avoids it. Otherwise the answer
+is still readable — the frame around it is not.
+
 ## Sample content
 
 `/AIWidgetInspector/Samples/EUW_AIInspectorSample` is an Editor Utility Widget — a live UMG widget
