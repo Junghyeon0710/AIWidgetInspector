@@ -71,8 +71,8 @@ void SAIWidgetTerminal::Construct(const FArguments& InArgs)
 			.AutoWidth()
 			[
 				SNew(SButton)
-				.Text(LOCTEXT("RestartCli", "Restart CLI"))
-				.ToolTipText(LOCTEXT("RestartCliTooltip", "Throw away this terminal and start a fresh CLI. Use it after the CLI exits, or to drop the conversation and begin a new one."))
+				.Text(this, &SAIWidgetTerminal::GetStartButtonText)
+				.ToolTipText(this, &SAIWidgetTerminal::GetStartButtonTooltip)
 				.OnClicked(this, &SAIWidgetTerminal::HandleRestartClicked)
 			]
 		]
@@ -102,11 +102,29 @@ void SAIWidgetTerminal::Construct(const FArguments& InArgs)
 		]
 	];
 
-	BuildTerminal();
+	// 여기서 시작하지 않는다. 무엇이 나가는지 읽고 나서 사용자가 누르는 것이다.
+	TerminalHost->SetContent(BuildStartNotice());
+}
 
-	// 패널을 여는 것만으로 CLI가 뜨게 한다. 물어보려고 버튼을 누른 뒤에야 뜨기 시작하면
-	// 첫 질문마다 CLI 부팅을 기다리게 된다.
-	StartCli();
+TSharedRef<SWidget> SAIWidgetTerminal::BuildStartNotice()
+{
+	return SNew(SBorder)
+		.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+		.Padding(12.0f)
+		.VAlign(VAlign_Top)
+		[
+			SNew(STextBlock)
+			.AutoWrapText(true)
+			.ColorAndOpacity(FSlateColor::UseSubduedForeground())
+			.Text(LOCTEXT("StartNotice",
+				"Nothing is running yet.\n\n"
+				"Starting the CLI runs the AI tool you installed, inside this panel, with this project as its "
+				"working directory. Asking about a widget hands it a file describing that widget: its name and "
+				"class, the Widget Blueprint asset path, the C++ file and line that created it, and a short "
+				"snippet of that source. Whatever the CLI sends onward is between you and its provider.\n\n"
+				"It also uses your account with that provider, so it can cost you.\n\n"
+				"Press Start CLI when you are ready."))
+		];
 }
 
 void SAIWidgetTerminal::BuildTerminal()
@@ -144,12 +162,30 @@ int32 SAIWidgetTerminal::OnPaint(const FPaintArgs& Args, const FGeometry& Allott
 
 void SAIWidgetTerminal::StartCli()
 {
-	if (bCliLaunched)
+	if (bStarted)
 	{
 		return;
 	}
 
+	bStarted = true;
+
+	// 여기서 처음으로 STerminal이 생긴다. 그 전에는 셸조차 뜨지 않는다.
+	BuildTerminal();
 	EnsurePumpRunning();
+}
+
+FText SAIWidgetTerminal::GetStartButtonText() const
+{
+	return bStarted
+		? LOCTEXT("RestartCli", "Restart CLI")
+		: LOCTEXT("StartCli", "Start CLI");
+}
+
+FText SAIWidgetTerminal::GetStartButtonTooltip() const
+{
+	return bStarted
+		? LOCTEXT("RestartCliTooltip", "Throw away this terminal and start a fresh CLI. Use it after the CLI exits, or to drop the conversation and begin a new one.")
+		: LOCTEXT("StartCliTooltip", "Run the AI CLI in this panel. Read what is above first -- it says what gets sent.");
 }
 
 void SAIWidgetTerminal::SetCli(EAITerminalCli InCli)
@@ -159,17 +195,29 @@ void SAIWidgetTerminal::SetCli(EAITerminalCli InCli)
 		return;
 	}
 
-	// 다른 CLI로 바꾸라는 것은 지금 떠 있는 것을 끝내라는 뜻이다. 죽은 세션은 되살릴 수
-	// 없고 살아 있는 것도 안에서 무엇을 하는지 알 수 없으니, 위젯째 갈아 끼운다.
 	Cli = InCli;
 	PendingPrompt.Reset();
 
+	// 아직 시작하지 않았으면 갈아 끼울 것이 없다. 다음에 누를 때 이 CLI로 뜬다.
+	if (!bStarted)
+	{
+		return;
+	}
+
+	// 다른 CLI로 바꾸라는 것은 지금 떠 있는 것을 끝내라는 뜻이다. 죽은 세션은 되살릴 수
+	// 없고 살아 있는 것도 안에서 무엇을 하는지 알 수 없으니, 위젯째 갈아 끼운다.
 	BuildTerminal();
-	StartCli();
+	EnsurePumpRunning();
 }
 
 ESendPromptResult SAIWidgetTerminal::SendPrompt(const FString& InPrompt)
 {
+	// 시작하지 않았으면 대신 시작해 주지 않는다. 그러면 안내를 읽지 않고도 세션이 열린다.
+	if (!bStarted)
+	{
+		return ESendPromptResult::NotStarted;
+	}
+
 	const FString Flattened = AIWidgetTerminalPrivate::FlattenToSingleLine(InPrompt);
 	if (Flattened.IsEmpty())
 	{
@@ -316,6 +364,12 @@ void SAIWidgetTerminal::LaunchCli(double InCurrentTime)
 
 bool SAIWidgetTerminal::IsTerminalQuiet(double InCurrentTime) const
 {
+	// 시작 전에는 터미널 자체가 없다. 조용한 것이 아니라 아직 없는 것이므로 거짓이다.
+	if (!Terminal.IsValid())
+	{
+		return false;
+	}
+
 	// 터미널이 그리기를 멈췄다는 것은 셸이든 CLI든 입력을 기다린다는 뜻이다. 그리는 중에
 	// 밀어 넣으면 프롬프트가 뜨기 전이라 흘려버리거나, TUI가 다시 그리면서 지워 버린다.
 	const double LastOutputTime = Terminal->GetLastOutputTime();
@@ -470,6 +524,13 @@ FReply SAIWidgetTerminal::HandleRestartClicked()
 		return FReply::Handled();
 	}
 
+	// 시작 전이면 이 버튼은 Start다. 지난 대화는 그대로 이어받는다.
+	if (!bStarted)
+	{
+		StartCli();
+		return FReply::Handled();
+	}
+
 	// 죽은 세션은 되살아나지 않고, 살아 있어도 안에서 CLI가 무엇을 하고 있는지 알 수 없다.
 	// 어느 쪽이든 새 위젯으로 갈아 끼우는 편이 확실하다. 옛 위젯이 사라지면서 그 세션도
 	// 함께 정리된다.
@@ -503,6 +564,14 @@ SAIWidgetTerminal::FStatus SAIWidgetTerminal::GetStatus() const
 	const FSlateColor Running(FLinearColor(0.45f, 0.85f, 0.5f));
 	const FSlateColor Caution(FLinearColor(1.0f, 0.78f, 0.35f));
 
+
+	// 아직 시작하지 않았다면 그것부터 말한다. 아래 안내를 읽고 누르라는 뜻이다.
+	if (!bStarted)
+	{
+		return { FText::Format(
+			LOCTEXT("NotStarted", "{0} is not running.  Read the note below, then press Start CLI."),
+			CliName), Waiting };
+	}
 
 	// 설치돼 있지 않다는 것부터 말한다. 이건 기다려도 해결되지 않고, 무엇을 해야 하는지도
 	// 분명하다. 아래의 "시작하는 중"이 먼저 뜨면 영영 안 뜨는 것처럼 보인다.

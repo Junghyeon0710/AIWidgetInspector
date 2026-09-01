@@ -1709,13 +1709,29 @@ void SAIWidgetInspectorPanel::SendToTerminal(EAIWidgetRequestKind InKind)
 
 	if (ResponseTextBox.IsValid())
 	{
-		// 앞 질문이 아직 나가지 않았다면 이번 질문이 그것을 대신한다. 조용히 덮으면
-		// 사용자는 두 질문을 다 보냈다고 생각하고, 오지 않을 답 하나를 기다린다.
-		ResponseTextBox->SetText(Result == ESendPromptResult::ReplacedQueued
-			? LOCTEXT("ReplacedInTerminal",
-				"Your previous question had not been sent yet, so this one replaced it.  Watch the CLI Session below.")
-			: LOCTEXT("SentToTerminal",
-				"Sent to the CLI Session below. The reply appears there, and you answer its permission prompts with Enter."));
+		FText Message;
+		switch (Result)
+		{
+		case ESendPromptResult::NotStarted:
+			// 대신 시작해 주지 않는다. 무엇이 나가는지 읽고 누르는 것이 이 버튼의 요점이다.
+			Message = LOCTEXT("TerminalNotStarted",
+				"The CLI is not running yet.  Open the CLI Session below, read what it sends, then press Start CLI and ask again.");
+			break;
+
+		case ESendPromptResult::ReplacedQueued:
+			// 앞 질문이 아직 나가지 않았다면 이번 질문이 그것을 대신한다. 조용히 덮으면
+			// 사용자는 두 질문을 다 보냈다고 생각하고, 오지 않을 답 하나를 기다린다.
+			Message = LOCTEXT("ReplacedInTerminal",
+				"Your previous question had not been sent yet, so this one replaced it.  Watch the CLI Session below.");
+			break;
+
+		default:
+			Message = LOCTEXT("SentToTerminal",
+				"Sent to the CLI Session below. The reply appears there, and you answer its permission prompts with Enter.");
+			break;
+		}
+
+		ResponseTextBox->SetText(Message);
 	}
 }
 

@@ -29,6 +29,9 @@ enum class ESendPromptResult : uint8
 	/** 큐에 넣었다. 터미널이 조용해지면 나간다. */
 	Queued,
 
+	/** CLI가 아직 시작되지 않아 아무것도 하지 않았다. 사용자가 먼저 시작해야 한다. */
+	NotStarted,
+
 	/** 아직 나가지 않은 앞선 질문을 이 질문이 대신한다. */
 	ReplacedQueued,
 };
@@ -41,8 +44,16 @@ public:
 
 	void Construct(const FArguments& InArgs);
 
-	/** CLI를 띄운다. 셸이 아직 준비되지 않았으면 준비된 뒤에 띄운다. */
+	/**
+	 * CLI를 시작한다. 사용자가 눌러야 하고, 우리가 알아서 부르지 않는다.
+	 *
+	 * 패널을 여는 것만으로 띄우던 때가 있었다. 탭 하나 열었을 뿐인데 AI 세션이 시작되고,
+	 * 유료 플랜이면 그건 사용자 돈이다. 무엇이 나가는지 읽고 나서 누를 수 있어야 한다.
+	 */
 	void StartCli();
+
+	/** CLI가 시작된 적이 있는지. 시작 전에는 터미널 위젯조차 만들지 않는다. */
+	bool IsStarted() const { return bStarted; }
 
 	/**
 	 * 어떤 CLI를 띄울지 정한다. 바뀌면 지금 것을 끝내고 새로 띄운다.
@@ -108,6 +119,13 @@ private:
 
 	FReply HandleRestartClicked();
 
+	/** 시작 전과 후에 버튼이 하는 일이 달라서 이름도 달라진다. */
+	FText GetStartButtonText() const;
+	FText GetStartButtonTooltip() const;
+
+	/** 시작 전에 터미널 자리에 놓는 안내. 무엇이 CLI로 넘어가는지 여기서 말한다. */
+	TSharedRef<SWidget> BuildStartNotice();
+
 	/**
 	 * 상태줄에 쓸 문장과 색.
 	 *
@@ -129,6 +147,14 @@ private:
 
 	/** 지금 띄우는 CLI. 패널이 목록에서 고른 것을 넘겨 준다. */
 	EAITerminalCli Cli = EAITerminalCli::Claude;
+
+	/**
+	 * 사용자가 시작을 눌렀는지.
+	 *
+	 * 이 값이 false인 동안에는 STerminal도 만들지 않는다. 만들면 첫 페인트에서 셸이
+	 * 뜨는데, 아무것도 시작하지 않았다고 말해 놓고 프로세스를 띄우는 셈이 된다.
+	 */
+	bool bStarted = false;
 
 	TSharedPtr<STerminal> Terminal;
 
