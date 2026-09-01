@@ -8,7 +8,15 @@ Unreal's built-in Widget Reflector tells you *what* a widget is. This plugin als
 C++ file and line — and is built so that information can be packaged up and sent to an AI for
 questions or change requests.
 
-**Engine:** Unreal Engine 5.8 · **Type:** Editor-only plugin · **Platforms:** Win64, Mac, Linux
+**Engine:** Unreal Engine 5.8 · **Type:** Editor-only plugin · **Platform:** Win64
+
+> **Experimental.** This plugin is built on three Experimental engine plugins — **Terminal**,
+> **ModelContextProtocol** and **ToolsetRegistry** — and links against all three. Experimental
+> plugins can change or disappear between engine versions without deprecation, so an engine
+> update can break this one. All three ship disabled, so you have to enable them first.
+>
+> Win64 only for now. The shell commands have a POSIX branch and it is covered by tests, but
+> nothing here has been built or run on Mac or Linux, so the manifest does not claim them.
 
 ## Using it
 
@@ -357,6 +365,16 @@ git clone https://github.com/Junghyeon0710/AIWidgetInspector.git Plugins/AIWidge
 Then regenerate project files and rebuild the editor target. The plugin needs a C++ project; a
 Blueprint-only project has no editor target to compile into.
 
+Enable **Terminal**, **ModelContextProtocol** and **ToolsetRegistry** in *Edit ▸ Plugins*. All
+three ship disabled, and this plugin links against all three, so it will not load without them.
+
+For the assistant to change widgets in the running editor rather than only read and write files,
+turn on *Project Settings ▸ Plugins ▸ Model Context Protocol ▸ Auto Start Server*. The CLI Session
+says which of the two you are in, so you do not have to guess.
+
+Install `claude` or `codex` on `PATH`. The panel runs one of them inside the editor; the plugin
+does not hold any API key of its own and does not talk to a model directly.
+
 ## Building from source
 
 To package it for distribution:
@@ -364,3 +382,16 @@ To package it for distribution:
 ```bash
 RunUAT BuildPlugin -Plugin="<path>/AIWidgetInspector.uplugin" -Package="<output>" -Rocket
 ```
+
+## License
+
+Copyright (c) 2026 Junghyeon0710. All rights reserved.  See [LICENSE](LICENSE).
+
+The source is public so you can see what the plugin does before you run it, and so the parts that
+touch your project and your AI account can be audited rather than taken on trust. That is not a
+grant of redistribution rights.
+
+The plugin holds no API key and talks to no model itself. It runs an AI CLI you installed, and
+hands it a context file describing the selected widget: names, classes, the Widget Blueprint asset
+path, the C++ file and line that created it, and a short snippet of that source. Whatever that CLI
+then sends onward is between you and its provider.

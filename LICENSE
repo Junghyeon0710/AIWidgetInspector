@@ -1,0 +1,37 @@
+Copyright (c) 2026 Junghyeon0710. All rights reserved.
+
+This software and its source code are made publicly readable so that buyers and
+evaluators can inspect what the plugin does before and after installing it.
+Being readable is not a grant of any license.
+
+You may:
+
+  - Read and study this source code.
+  - Build and use it inside your own Unreal Engine projects if you obtained a
+    copy through a distribution channel where the copyright holder offered it
+    (for example a purchase on Fab), under the terms that channel attaches to
+    that purchase.
+
+You may not, without prior written permission from the copyright holder:
+
+  - Redistribute this software or its source code, in original or modified
+    form, whether or not for a fee.
+  - Sell, sublicense, rent or lease it.
+  - Publish it, or a derivative of it, to any marketplace, package registry or
+    plugin distribution channel.
+  - Remove or alter this notice.
+
+Contributions submitted to the public repository are accepted only if the
+contributor agrees that the copyright holder may use them under these terms.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+This plugin runs a third-party AI CLI (such as Anthropic's `claude` or OpenAI's
+`codex`) that you install yourself. Those tools are covered by their own terms,
+not by this notice, and what they do with what you send them is between you and
+their provider. See the README for what this plugin sends.
