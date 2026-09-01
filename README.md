@@ -10,10 +10,11 @@ questions or change requests.
 
 **Engine:** Unreal Engine 5.8 · **Type:** Editor-only plugin · **Platform:** Win64
 
-> **Experimental.** This plugin is built on three Experimental engine plugins — **Terminal**,
-> **ModelContextProtocol** and **ToolsetRegistry** — and links against all three. Experimental
-> plugins can change or disappear between engine versions without deprecation, so an engine
-> update can break this one. All three ship disabled, so you have to enable them first.
+> **Built on Experimental engine plugins.** This links against **Terminal**,
+> **ModelContextProtocol** and **ToolsetRegistry**. All three are Experimental in 5.8 and ship
+> disabled, so enable them before installing this. Because they are Experimental their APIs can
+> change between engine versions without deprecation, so this build is pinned to 5.8: a newer
+> engine version will need a build made against it rather than dropping this one in as-is.
 >
 > Win64 only for now. The shell commands have a POSIX branch and it is covered by tests, but
 > nothing here has been built or run on Mac or Linux, so the manifest does not claim them.
