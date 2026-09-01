@@ -119,6 +119,8 @@ void SAIWidgetTerminal::BuildTerminal()
 	// 없어서 못 띄웠던 CLI를 설치하고 Restart를 누르는 흐름이 있다. 그때 다시 찾는다.
 	bCliOnPath.Reset();
 	bCliSettled = false;
+	bCliStalled = false;
+	bPromptDropped = false;
 
 	bEverPainted = false;
 	bCliLaunched = false;
@@ -166,18 +168,29 @@ void SAIWidgetTerminal::SetCli(EAITerminalCli InCli)
 	StartCli();
 }
 
-void SAIWidgetTerminal::SendPrompt(const FString& InPrompt)
+ESendPromptResult SAIWidgetTerminal::SendPrompt(const FString& InPrompt)
 {
 	const FString Flattened = AIWidgetTerminalPrivate::FlattenToSingleLine(InPrompt);
 	if (Flattened.IsEmpty())
 	{
-		return;
+		return ESendPromptResult::Queued;
 	}
 
 	// 아직 못 보낸 프롬프트가 있으면 덮어쓴다. 둘 다 보내면 CLI가 첫 답을 쓰는 중에
 	// 두 번째가 끼어들어 두 대화가 섞인다.
+	//
+	// 다만 조용히 덮지 않는다. 앞 질문이 어디로 갔는지 모른 채 답을 기다리게 된다.
+	const bool bReplaced = !PendingPrompt.IsEmpty();
+
 	PendingPrompt = Flattened;
+	PromptQueuedTime = FSlateApplication::Get().GetCurrentTime();
+
+	// 새 질문이 왔으니 지난 실패는 지운다. 안 그러면 보내는 중에도 버렸다는 문구가 남는다.
+	bPromptDropped = false;
+
 	EnsurePumpRunning();
+
+	return bReplaced ? ESendPromptResult::ReplacedQueued : ESendPromptResult::Queued;
 }
 
 void SAIWidgetTerminal::EnsurePumpRunning()
@@ -297,6 +310,7 @@ void SAIWidgetTerminal::LaunchCli(double InCurrentTime)
 
 	bCliLaunched = true;
 	bCliSettled = false;
+	bCliStalled = false;
 	CliLaunchTime = InCurrentTime;
 }
 
@@ -387,24 +401,57 @@ EActiveTimerReturnType SAIWidgetTerminal::OnPump(double InCurrentTime, float InD
 		return EActiveTimerReturnType::Stop;
 	}
 
+	// 띄운 CLI가 화면을 한 번이라도 멎기 전에는 준비된 것으로 보지 않는다.
+	//
+	// 예전에는 여기서 20초를 세다가 안 조용해도 그냥 보냈다. 영원히 기다리는 것보다는
+	// 낫다고 봤는데, 실은 더 나빴다. 덜 그려진 TUI에 밀어 넣은 글자는 어디로 가는지 알 수
+	// 없고, 사용자는 질문이 갔다고 생각한 채 오지 않을 답을 기다린다.
+	if (!bCliSettled)
+	{
+		if (IsTerminalQuiet(InCurrentTime))
+		{
+			bCliSettled = true;
+		}
+		else if ((InCurrentTime - CliLaunchTime) >= MaxWaitForCliSeconds)
+		{
+			UE_LOG(LogAIWidgetInspector, Warning,
+				TEXT("The CLI kept drawing for %.0f seconds and never settled."), MaxWaitForCliSeconds);
+
+			bCliStalled = true;
+			bPromptDropped = !PendingPrompt.IsEmpty();
+			PendingPrompt.Reset();
+
+			PumpHandle.Reset();
+			return EActiveTimerReturnType::Stop;
+		}
+		else
+		{
+			return EActiveTimerReturnType::Continue;
+		}
+	}
+
 	if (PendingPrompt.IsEmpty())
 	{
 		PumpHandle.Reset();
 		return EActiveTimerReturnType::Stop;
 	}
 
-	// CLI가 뜨는 동안에는 화면이 계속 갱신된다. 멎으면 입력을 기다리는 상태로 본다.
-	const bool bWaitedTooLong = (InCurrentTime - CliLaunchTime) >= MaxWaitForCliSeconds;
-	if (!IsTerminalQuiet(InCurrentTime) && !bWaitedTooLong)
+	// 답하는 중에는 화면이 계속 움직인다. 그때 끼어들면 질문이 답 속으로 섞여 들어간다.
+	if (!IsTerminalQuiet(InCurrentTime))
 	{
-		return EActiveTimerReturnType::Continue;
-	}
+		if ((InCurrentTime - PromptQueuedTime) < MaxWaitForIdleSeconds)
+		{
+			return EActiveTimerReturnType::Continue;
+		}
 
-	if (bWaitedTooLong && !IsTerminalQuiet(InCurrentTime))
-	{
-		// 보내기는 하되, 답이 이상하면 왜 그런지 짚을 수 있게 남긴다.
 		UE_LOG(LogAIWidgetInspector, Warning,
-			TEXT("The CLI kept drawing for %.0f seconds. Sending the prompt anyway."), MaxWaitForCliSeconds);
+			TEXT("The CLI stayed busy for %.0f seconds, so the queued question was dropped."), MaxWaitForIdleSeconds);
+
+		bPromptDropped = true;
+		PendingPrompt.Reset();
+
+		PumpHandle.Reset();
+		return EActiveTimerReturnType::Stop;
 	}
 
 	Terminal->ExecuteCommand(PendingPrompt);
@@ -456,6 +503,7 @@ SAIWidgetTerminal::FStatus SAIWidgetTerminal::GetStatus() const
 	const FSlateColor Running(FLinearColor(0.45f, 0.85f, 0.5f));
 	const FSlateColor Caution(FLinearColor(1.0f, 0.78f, 0.35f));
 
+
 	// 설치돼 있지 않다는 것부터 말한다. 이건 기다려도 해결되지 않고, 무엇을 해야 하는지도
 	// 분명하다. 아래의 "시작하는 중"이 먼저 뜨면 영영 안 뜨는 것처럼 보인다.
 	if (!IsCliOnPath())
@@ -477,6 +525,14 @@ SAIWidgetTerminal::FStatus SAIWidgetTerminal::GetStatus() const
 		return { LOCTEXT("ShellFailed", "The terminal did not start.  Check the output log."), Problem };
 	}
 
+	// 띄우기는 했는데 끝내 입력을 받을 상태가 되지 않았다.
+	if (bCliStalled)
+	{
+		return { FText::Format(
+			LOCTEXT("CliStalled", "{0} started but never became ready, so nothing was sent.  Look at the terminal below, then press Restart CLI."),
+			CliName), Problem };
+	}
+
 	if (!IsSessionRunning())
 	{
 		return { LOCTEXT("StartingShell", "Starting the terminal..."), Waiting };
@@ -490,19 +546,23 @@ SAIWidgetTerminal::FStatus SAIWidgetTerminal::GetStatus() const
 	if (!PendingPrompt.IsEmpty() || bAwaitingSubmit)
 	{
 		return { FText::Format(
-			LOCTEXT("WaitingForCli", "Waiting for {0} to be ready, then sending your question..."),
+			LOCTEXT("WaitingForCli", "Waiting for {0} to finish, then sending your question..."),
 			CliName), Waiting };
 	}
 
-	// 명령을 넣은 뒤 화면이 한 번 멎어야 뜬 것으로 본다. 뜨는 동안에는 계속 다시 그린다.
+	// 보내려던 질문을 버렸다면 그렇게 말한다. 조용히 사라지면 답을 기다리게 된다.
+	if (bPromptDropped)
+	{
+		return { FText::Format(
+			LOCTEXT("PromptDropped", "{0} stayed busy too long, so your question was not sent.  Ask again when it is idle."),
+			CliName), Caution };
+	}
+
+	// 뜨는 중인지 아닌지는 OnPump가 정한다. 여기서 계산하면 섹션을 접어 두었을 때와
+	// 펼쳐 두었을 때 상태가 달라진다.
 	if (!bCliSettled)
 	{
-		if (!IsTerminalQuiet(FSlateApplication::Get().GetCurrentTime()))
-		{
-			return { FText::Format(LOCTEXT("StartingCli", "Starting {0}..."), CliName), Waiting };
-		}
-
-		bCliSettled = true;
+		return { FText::Format(LOCTEXT("StartingCli", "Starting {0}..."), CliName), Waiting };
 	}
 
 	// 여기까지 왔으면 돌고 있다. 남은 것은 무엇을 할 수 있는 상태인지다.

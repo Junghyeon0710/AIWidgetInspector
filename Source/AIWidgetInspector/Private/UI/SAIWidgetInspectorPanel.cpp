@@ -1705,12 +1705,17 @@ void SAIWidgetInspectorPanel::SendToTerminal(EAIWidgetRequestKind InKind)
 		*Instruction,
 		*Question);
 
-	TerminalWidget->SendPrompt(Prompt);
+	const ESendPromptResult Result = TerminalWidget->SendPrompt(Prompt);
 
 	if (ResponseTextBox.IsValid())
 	{
-		ResponseTextBox->SetText(LOCTEXT("SentToTerminal",
-			"Sent to the CLI Session below. The reply appears there, and you answer its permission prompts with Enter."));
+		// 앞 질문이 아직 나가지 않았다면 이번 질문이 그것을 대신한다. 조용히 덮으면
+		// 사용자는 두 질문을 다 보냈다고 생각하고, 오지 않을 답 하나를 기다린다.
+		ResponseTextBox->SetText(Result == ESendPromptResult::ReplacedQueued
+			? LOCTEXT("ReplacedInTerminal",
+				"Your previous question had not been sent yet, so this one replaced it.  Watch the CLI Session below.")
+			: LOCTEXT("SentToTerminal",
+				"Sent to the CLI Session below. The reply appears there, and you answer its permission prompts with Enter."));
 	}
 }
 

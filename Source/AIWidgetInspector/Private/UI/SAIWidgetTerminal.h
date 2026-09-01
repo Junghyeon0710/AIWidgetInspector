@@ -23,6 +23,16 @@ class STerminal;
  * 사용자가 쓴 문장이 명령으로 실행되기 때문이다. 화면으로는 CLI가 떠 있는지 알 수 없어서,
  * 세션이 살아 있는지로만 판단할 수 있게 둘의 수명을 묶었다.
  */
+/** SendPrompt가 프롬프트를 어떻게 받았는지. 조용히 사라지는 일이 없게 부른 쪽에 알린다. */
+enum class ESendPromptResult : uint8
+{
+	/** 큐에 넣었다. 터미널이 조용해지면 나간다. */
+	Queued,
+
+	/** 아직 나가지 않은 앞선 질문을 이 질문이 대신한다. */
+	ReplacedQueued,
+};
+
 class SAIWidgetTerminal : public SCompoundWidget
 {
 public:
@@ -48,7 +58,7 @@ public:
 	 * 전에 밀어 넣으면 아래 셸이 그걸 명령으로 받아 엉뚱한 걸 실행한다. 대기 중에 새
 	 * 프롬프트가 오면 마지막 것만 남는다.
 	 */
-	void SendPrompt(const FString& InPrompt);
+	ESendPromptResult SendPrompt(const FString& InPrompt);
 
 	/** 셸 세션이 살아 있는지. CLI 자체가 떠 있는지까지는 알 수 없다. */
 	bool IsSessionRunning() const;
@@ -160,10 +170,24 @@ private:
 	/** 프롬프트를 넣은 시점. 여기서 SubmitDelaySeconds가 지나면 Enter를 보낸다. */
 	double PromptTypedTime = 0.0;
 
+	/** 프롬프트를 큐에 넣은 시점. CLI가 답하는 동안 얼마나 기다렸는지의 기준이 된다. */
+	double PromptQueuedTime = 0.0;
+
 	bool bCliLaunched = false;
 
 	/** 띄운 CLI가 이미 나갔는지. 셸과 수명을 묶어 두어 세션이 사라지면 이걸로 본다. */
 	bool bCliExited = false;
+
+	/**
+	 * 띄웠는데 끝내 뜨지 않았는지.
+	 *
+	 * 예전에는 이 경우에도 그냥 보냈다. 덜 그려진 TUI에 글자를 밀어 넣으면 어디로 가는지
+	 * 알 수 없고, 사용자는 질문을 보냈다고 생각한 채 답을 기다린다.
+	 */
+	bool bCliStalled = false;
+
+	/** 보내려던 질문을 결국 버렸는지. 조용히 사라지는 것보다 버렸다고 말하는 편이 낫다. */
+	bool bPromptDropped = false;
 
 	/**
 	 * 다음 실행에서 지난 대화를 버릴지.
@@ -193,8 +217,11 @@ private:
 	 *
 	 * 실행 명령을 넣었다고 CLI가 뜬 것은 아니다. 그 사이에 "돌고 있다"고 말하면, 아직
 	 * 아무것도 받을 수 없는 터미널을 두고 준비됐다고 알리는 셈이다.
+	 *
+	 * 이 값은 OnPump만 바꾼다. 그려질 때 계산하면 섹션을 접어 두었을 때와 펼쳐 두었을 때
+	 * 상태가 달라진다.
 	 */
-	mutable bool bCliSettled = false;
+	bool bCliSettled = false;
 
 	/** 셸이 끝내 뜨지 않았다. 상태줄에 이유를 남긴다. */
 	bool bShellTimedOut = false;
@@ -205,8 +232,16 @@ private:
 	/** 출력이 이만큼 멈추면 TUI가 입력을 받을 준비가 됐다고 본다. */
 	static constexpr double QuietSecondsBeforeSend = 0.75;
 
-	/** 그래도 안 조용해지면 그냥 보낸다. 영원히 기다리는 것보다 낫다. */
+	/** CLI가 이 시간 안에 한 번도 조용해지지 않으면 뜨지 못한 것으로 본다. */
 	static constexpr double MaxWaitForCliSeconds = 20.0;
+
+	/**
+	 * 답하는 중인 CLI를 이만큼 기다렸다가 포기한다.
+	 *
+	 * 넉넉해야 한다. 파일을 뒤지고 고치는 답은 몇 분이 걸리고, 그동안 화면은 계속
+	 * 움직인다. 그 사이에 끼어들어 타이핑하면 질문이 답 속으로 섞여 들어간다.
+	 */
+	static constexpr double MaxWaitForIdleSeconds = 300.0;
 
 	/** 셸이 이 시간 안에 뜨지 않으면 포기한다. */
 	static constexpr double MaxWaitForShellSeconds = 10.0;
