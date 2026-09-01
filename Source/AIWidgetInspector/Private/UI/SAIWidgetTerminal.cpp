@@ -591,7 +591,12 @@ SAIWidgetTerminal::FStatus SAIWidgetTerminal::GetStatus() const
 			CliName), Problem };
 	}
 
-	if (bCliExited)
+	// 깃발만 보지 않고 지금 상태를 함께 본다.
+	//
+	// 그 깃발은 OnPump가 세운다. 그런데 펌프는 CLI가 뜨고 보낼 질문이 없으면 멈춘다.
+	// 그 뒤에 CLI가 죽으면 아무도 보고 있지 않아 깃발이 서지 않고, 상태줄이 아래의
+	// "아직 셸이 뜨는 중"으로 되돌아간다. 죽은 터미널을 두고 뜨는 중이라고 말하게 된다.
+	if (bCliExited || (bCliLaunched && !IsSessionRunning()))
 	{
 		return { FText::Format(
 			LOCTEXT("CliExited", "{0} exited, so this terminal is finished.  Press Restart CLI to start another one."),
