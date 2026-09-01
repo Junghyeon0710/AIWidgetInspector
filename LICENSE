@@ -1,25 +1,29 @@
 Copyright (c) 2026 Junghyeon0710. All rights reserved.
 
-This software and its source code are made publicly readable so that buyers and
-evaluators can inspect what the plugin does before and after installing it.
-Being readable is not a grant of any license.
+This plugin is distributed free of charge. Being free is not the same as being
+open source: you may use it without paying, and you may read the source, but
+the rights below are the only ones granted.
 
 You may:
 
-  - Read and study this source code.
-  - Build and use it inside your own Unreal Engine projects if you obtained a
-    copy through a distribution channel where the copyright holder offered it
-    (for example a purchase on Fab), under the terms that channel attaches to
-    that purchase.
+  - Use this plugin in your own Unreal Engine projects, personal or commercial,
+    including projects you sell. Nothing you make with it is encumbered by this
+    notice.
+  - Read and study the source code.
+  - Modify it locally for your own use.
 
 You may not, without prior written permission from the copyright holder:
 
-  - Redistribute this software or its source code, in original or modified
-    form, whether or not for a fee.
-  - Sell, sublicense, rent or lease it.
+  - Redistribute this plugin or its source code, in original or modified form,
+    whether or not for a fee.
   - Publish it, or a derivative of it, to any marketplace, package registry or
     plugin distribution channel.
+  - Sell, sublicense, rent or lease it.
   - Remove or alter this notice.
+
+Point people at the original instead of passing on a copy. That way everyone
+gets the version that is still being fixed, and reports arrive somewhere they
+can be acted on.
 
 Contributions submitted to the public repository are accepted only if the
 contributor agrees that the copyright holder may use them under these terms.
