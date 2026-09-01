@@ -11,10 +11,11 @@ questions or change requests.
 **Engine:** Unreal Engine 5.8 · **Type:** Editor-only plugin · **Platform:** Win64
 
 > **Built on Experimental engine plugins.** This links against **Terminal**,
-> **ModelContextProtocol** and **ToolsetRegistry**. All three are Experimental in 5.8 and ship
-> disabled, so enable them before installing this. Because they are Experimental their APIs can
-> change between engine versions without deprecation, so this build is pinned to 5.8: a newer
-> engine version will need a build made against it rather than dropping this one in as-is.
+> **ModelContextProtocol** and **ToolsetRegistry**, all three Experimental in 5.8. They ship
+> disabled, but you do not have to hunt them down: they are declared as dependencies, so enabling
+> this plugin pulls all three in. Because they are Experimental their APIs can change between
+> engine versions without deprecation, so this build is pinned to 5.8: a newer engine version will
+> need a build made against it rather than dropping this one in as-is.
 >
 > Win64 only for now. The shell commands have a POSIX branch and it is covered by tests, but
 > nothing here has been built or run on Mac or Linux, so the manifest does not claim them.
@@ -404,8 +405,8 @@ git clone https://github.com/Junghyeon0710/AIWidgetInspector.git Plugins/AIWidge
 Then regenerate project files and rebuild the editor target. The plugin needs a C++ project; a
 Blueprint-only project has no editor target to compile into.
 
-Enable **Terminal**, **ModelContextProtocol** and **ToolsetRegistry** in *Edit ▸ Plugins*. All
-three ship disabled, and this plugin links against all three, so it will not load without them.
+Enabling this plugin also enables **Terminal**, **ModelContextProtocol** and **ToolsetRegistry**,
+which it depends on. You do not have to enable them yourself.
 
 For the assistant to change widgets in the running editor rather than only read and write files,
 turn on *Project Settings ▸ Plugins ▸ Model Context Protocol ▸ Auto Start Server*. The CLI Session

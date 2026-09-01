@@ -3,7 +3,7 @@
 	"Version": 6,
 	"VersionName": "0.6.0",
 	"FriendlyName": "AI Widget Inspector",
-	"Description": "Click any Slate or UMG widget in the Unreal Editor to select it, trace it back to the UWidget, UserWidget, Widget Blueprint or C++ source that created it, and hand that context to an AI assistant running in a terminal inside the panel. Requires an AI CLI on PATH, and three engine plugins that ship disabled: Terminal, ModelContextProtocol and ToolsetRegistry. Those three are Experimental in 5.8, so this build is pinned to 5.8 -- a newer engine version will need a new build.",
+	"Description": "Click any Slate or UMG widget in the Unreal Editor to select it, trace it back to the UWidget, UserWidget, Widget Blueprint or C++ source that created it, and hand that context to an AI assistant running in a terminal inside the panel. Requires an AI CLI on PATH. Depends on Terminal, ModelContextProtocol and ToolsetRegistry, which are enabled for you. Those three are Experimental in 5.8, so this build is pinned to 5.8 -- a newer engine version will need a new build.",
 	"Category": "Editor Tools",
 	"CreatedBy": "Junghyeon0710",
 	"CreatedByURL": "https://github.com/Junghyeon0710",
