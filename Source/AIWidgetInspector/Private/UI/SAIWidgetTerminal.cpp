@@ -2,7 +2,7 @@
 
 #include "UI/SAIWidgetTerminal.h"
 
-#include "AI/AICliProvider.h"
+#include "AI/AICliEnvironment.h"
 #include "AI/AITerminalProvider.h"
 #include "AIWidgetInspectorLog.h"
 
@@ -251,7 +251,7 @@ void SAIWidgetTerminal::LaunchCli(double InCurrentTime)
 	// --allowedTools 같은 것으로 미리 좁히지 않는 것이 원샷 Provider와 다른 점이다.
 	// 대화형이라 승인을 물을 데가 있고, 무엇을 허락할지는 사용자가 그 자리에서 정하면 된다.
 	FString SharedFlags;
-	if (FAICliProvider::IsEditorMcpRunning())
+	if (AIWidgetInspector::CliEnvironment::IsEditorMcpRunning())
 	{
 		switch (Cli)
 		{
@@ -260,7 +260,7 @@ void SAIWidgetTerminal::LaunchCli(double InCurrentTime)
 				// 절대 경로로 펴서 넘긴다. WriteMcpConfigFile이 돌려주는 것은 엔진 실행 파일
 				// 기준의 상대 경로라, 에디터가 직접 띄우는 원샷 Provider에서는 맞지만 여기서는
 				// 아니다. 우리는 셸을 프로젝트로 옮겨 놓고 CLI를 띄우므로 기준점이 다르다.
-				const FString McpConfigPath = FAICliProvider::WriteMcpConfigFile(TEXT("unreal"));
+				const FString McpConfigPath = AIWidgetInspector::CliEnvironment::WriteMcpConfigFile(TEXT("unreal"));
 				if (!McpConfigPath.IsEmpty())
 				{
 					SharedFlags = FString::Printf(TEXT(" --strict-mcp-config --mcp-config \"%s\""),
@@ -274,7 +274,7 @@ void SAIWidgetTerminal::LaunchCli(double InCurrentTime)
 			// 값에 따옴표를 두르지 않는다. TOML로 파싱되지 않으면 문자열 그대로 쓰는데 URL이
 			// 그 경우라, cmd 안에서 따옴표를 겹치지 않아도 되는 이쪽이 안전하다.
 			SharedFlags = FString::Printf(TEXT(" -c mcp_servers.unreal.url=%s"),
-				*FAICliProvider::GetEditorMcpUrl());
+				*AIWidgetInspector::CliEnvironment::GetEditorMcpUrl());
 			break;
 		}
 	}
@@ -486,7 +486,7 @@ bool SAIWidgetTerminal::IsCliOnPath() const
 	if (!bCliOnPath.IsSet())
 	{
 		FString ExecutablePath;
-		bCliOnPath = FAICliProvider::FindExecutable(FAITerminalProvider::GetExecutable(Cli), ExecutablePath);
+		bCliOnPath = AIWidgetInspector::CliEnvironment::FindExecutable(FAITerminalProvider::GetExecutable(Cli), ExecutablePath);
 	}
 
 	return bCliOnPath.GetValue();
@@ -557,7 +557,7 @@ SAIWidgetTerminal::FStatus SAIWidgetTerminal::GetStatus() const
 	// 살아 있는 에디터의 위젯은 건드리지 못하는데, 화면만 봐서는 둘을 구분할 수 없다.
 	// MCP가 없어도 CLI는 돈다. 다만 이 패널을 쓰는 이유가 대개 "고른 위젯을 고쳐 줘"인데,
 	// 그건 못 하는 상태다. 초록으로 두면 다 잘 되고 있다고 읽힌다.
-	const bool bMcpAttached = FAICliProvider::IsEditorMcpRunning();
+	const bool bMcpAttached = AIWidgetInspector::CliEnvironment::IsEditorMcpRunning();
 	const FText McpNote = bMcpAttached
 		? LOCTEXT("McpOn", "Unreal MCP is attached, so it can change the widget in the running editor.")
 		: LOCTEXT("McpOff", "Unreal MCP is off, so it can only read and write files.  Turn on Auto Start Server under Project Settings > Plugins > Model Context Protocol, then restart the editor.");

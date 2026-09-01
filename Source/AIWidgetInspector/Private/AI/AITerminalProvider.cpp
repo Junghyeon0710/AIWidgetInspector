@@ -2,7 +2,7 @@
 
 #include "AI/AITerminalProvider.h"
 
-#include "AI/AICliProvider.h"
+#include "AI/AICliEnvironment.h"
 
 #define LOCTEXT_NAMESPACE "FAITerminalProvider"
 
@@ -78,7 +78,7 @@ void FAITerminalProvider::SendRequest(const FAIWidgetRequest& InRequest, FOnAIWi
 
 bool FAITerminalProvider::FindExecutablePath(FString& OutPath) const
 {
-	return FAICliProvider::FindExecutable(GetExecutable(Cli), OutPath);
+	return AIWidgetInspector::CliEnvironment::FindExecutable(GetExecutable(Cli), OutPath);
 }
 
 #undef LOCTEXT_NAMESPACE
