@@ -71,10 +71,10 @@ bool FAITerminalCommandTest::RunTest(const FString& Parameters)
 		Launch.SessionId = SessionId;
 		Launch.bResume = true;
 		Launch.bWindowsShell = true;
-		Launch.McpConfigPath = TEXT("D:/Project/Intermediate/McpConfig.json");
+		Launch.McpConfigPath = TEXT("C:/Example/Intermediate/McpConfig.json");
 
 		const FString Command = BuildLaunchCommand(Launch);
-		const FString Flags = TEXT("--strict-mcp-config --mcp-config \"D:/Project/Intermediate/McpConfig.json\"");
+		const FString Flags = TEXT("--strict-mcp-config --mcp-config \"C:/Example/Intermediate/McpConfig.json\"");
 
 		int32 First = INDEX_NONE;
 		const bool bFound = Command.FindChar(TEXT('-'), First);
@@ -147,7 +147,7 @@ bool FAITerminalCommandTest::RunTest(const FString& Parameters)
 		FLaunch CodexWithPath;
 		CodexWithPath.Cli = EAITerminalCli::Codex;
 		CodexWithPath.bWindowsShell = true;
-		CodexWithPath.McpConfigPath = TEXT("D:/Project/Intermediate/McpConfig.json");
+		CodexWithPath.McpConfigPath = TEXT("C:/Example/Intermediate/McpConfig.json");
 
 		TestFalse(TEXT("codex가 claude용 설정 파일을 집지 않는다"),
 			BuildLaunchCommand(CodexWithPath).Contains(TEXT("--mcp-config")));
@@ -177,12 +177,12 @@ bool FAITerminalCommandTest::RunTest(const FString& Parameters)
 	// 원래 드라이브에 남고, CLI가 엉뚱한 폴더를 프로젝트로 본다.
 	{
 		TestEqual(TEXT("cmd 는 /d 가 필요하다"),
-			BuildChangeDirectoryCommand(TEXT("D:/UnrealEngineLab/"), true),
-			TEXT("cd /d \"D:/UnrealEngineLab/\""));
+			BuildChangeDirectoryCommand(TEXT("C:/Example/Project/"), true),
+			TEXT("cd /d \"C:/Example/Project/\""));
 
 		TestEqual(TEXT("POSIX 는 /d 를 모른다"),
-			BuildChangeDirectoryCommand(TEXT("/home/me/Project/"), false),
-			TEXT("cd \"/home/me/Project/\""));
+			BuildChangeDirectoryCommand(TEXT("/home/example/Project/"), false),
+			TEXT("cd \"/home/example/Project/\""));
 	}
 
 	return true;
