@@ -34,6 +34,12 @@ questions or change requests.
 While Inspect Mode is on, the plugin consumes mouse clicks so that clicking selects a widget
 instead of pressing it. Everything returns to normal as soon as a widget is picked or you cancel.
 
+Pick UMG widgets while they are live, not on the Widget Blueprint designer canvas. The designer
+wraps its preview so that it can handle drag-selection itself, so a click there stops at the designer
+surface and never reaches the `SObjectWidget` that marks where your UserWidget begins — the UMG and
+Source rows stay empty. Run the widget first, as an Editor Utility Widget or as your game UI in PIE,
+and the rows fill in from the live instance. See [Sample content](#sample-content).
+
 ## What it reports
 
 | | |
@@ -296,10 +302,11 @@ what is running. It also says whether the editor's MCP server is actually attach
 asking the server whether it is running, not by reading the auto-start setting, which stays true
 even when the port was already taken.
 
-The CLI providers hold no credentials. The prompt goes to the tool's stdin, the answer comes back
-on stdout, and authentication is whatever that CLI already has — the plugin never stores an API key
-and never opens a socket itself. A CLI that is not installed stays in the list with the send button
-disabled and the reason in its tooltip, rather than vanishing.
+The CLI providers hold no credentials. The prompt is typed into the terminal the CLI is running in,
+the answer comes back in that same terminal, and authentication is whatever that CLI already has —
+the plugin never stores an API key and never opens a socket to a model itself. A CLI that is not
+installed stays in the list rather than vanishing, with the reason and the command that installs it
+stated in the panel.
 
 The CLI providers are run as responders, not as coding agents. Invoked plainly, `claude` would open
 an agentic session in the project directory and start reading and editing files — answering a
