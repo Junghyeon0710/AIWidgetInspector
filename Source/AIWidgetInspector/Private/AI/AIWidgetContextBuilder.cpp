@@ -1,3 +1,4 @@
+// Copyright 2026 Junghyeon0710. All Rights Reserved.
 // AI Widget Inspector
 
 #include "AI/AIWidgetContextBuilder.h"
