@@ -432,14 +432,7 @@ RunUAT BuildPlugin -Plugin="<path>/AIWidgetInspector.uplugin" -Package="<output>
 
 ## License
 
-Free to use. Copyright (c) 2026 Junghyeon0710. All rights reserved.  See [LICENSE](LICENSE).
-
-Use it in your own projects, personal or commercial, including ones you sell — nothing you make
-with it is encumbered. Read the source, and modify your copy. What is not granted is
-redistribution: do not republish it or a derivative anywhere, marketplace or otherwise.
-
-Point people at the original rather than passing on a copy, so everyone ends up with the version
-that is still being fixed and reports arrive somewhere they can be acted on.
+Distributed on Fab under the Fab Standard License, which is what governs your use of this plugin.
 
 The source is public so you can see what the plugin does before you run it, and so the parts that
 touch your project and your AI account can be audited rather than taken on trust.
