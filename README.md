@@ -1,5 +1,9 @@
 # AI Widget Inspector
 
+[![Get it on Fab](https://img.shields.io/badge/Fab-Get%20it%20free-4D8DF0?style=for-the-badge)](https://www.fab.com/listings/7f0a07da-7893-4902-82b2-491c4a1f0fc8)
+
+Published on Fab: **[AI Widget Inspector](https://www.fab.com/listings/7f0a07da-7893-4902-82b2-491c4a1f0fc8)** — free.
+
 Click any Slate or UMG widget in the Unreal Editor, see exactly what created it, and hand that
 context to an AI assistant.
 
