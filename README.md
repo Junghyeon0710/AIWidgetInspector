@@ -4,6 +4,13 @@
 
 Published on Fab: **[AI Widget Inspector](https://www.fab.com/listings/7f0a07da-7893-4902-82b2-491c4a1f0fc8)** — free.
 
+![Picking a widget in a running game, asking for a change, and watching the Blueprint change](Docs/demo.gif)
+
+*A widget reads `Bye` in the running game. Inspect Mode picks it, the panel names the Widget
+Blueprint that owns it, and the CLI edits that Blueprint through Unreal MCP. The clip is a real
+recording; only the stretch where the assistant is working is sped up, and it is labelled where
+that happens.*
+
 Click any Slate or UMG widget in the Unreal Editor, see exactly what created it, and hand that
 context to an AI assistant.
 
